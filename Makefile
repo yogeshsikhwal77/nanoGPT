@@ -1,10 +1,13 @@
-.PHONY: setup train judge sft serve test all
+.PHONY: setup tokenize train judge sft serve test all
 
 setup:
 	pip install torch --index-url https://download.pytorch.org/whl/cu121
 	pip install -r requirements.txt
 	pip install -e .
 	ollama pull llama3.2:1b
+
+tokenize:
+	python -m nanogpt.tokenizers encode --input-dir data/raw/ --output-dir data/tokenized/
 
 train:
 	python -m nanogpt.train_base --config configs/base.yaml
@@ -21,4 +24,4 @@ serve:
 test:
 	pytest -q
 
-all: train judge sft serve
+all: setup tokenize train judge sft serve
