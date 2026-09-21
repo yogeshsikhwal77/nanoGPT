@@ -1,3 +1,6 @@
+#---- yaml file for model and training----
+
+
 model:
   dim: 384
   layers: 6

@@ -1,3 +1,5 @@
+# yaml file for supervised fine tuning---
+
 model_path: checkpoints/base_model_15M.pt
 data_path: data/sft/aligned_pairs.json
 save_path: checkpoints/sft_model_final.pt
