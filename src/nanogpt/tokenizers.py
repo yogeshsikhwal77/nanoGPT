@@ -57,7 +57,7 @@ def encode(input_dir: str, output_dir: str, tokenizer_path: str = "tokenizer.jso
 
         tokens.append(eos_id)
         # Vocab size is 10,000, so uint16 (max 65,535) is perfectly sized and saves memory
-        arr = np.array(tokens,dtype = np.unit16)
+        arr = np.array(tokens,dtype = np.uint16)
 
         out_name = f"shard_{i:04d}.bin"
         out_path = os.path.join(output_dir, out_name)
