@@ -1,0 +1,14 @@
+model:
+  dim: 384
+  layers: 6
+  heads: 6
+  context_len: 256
+  vocab_size: 10000
+train:
+  batch_size: 16
+  grad_accum: 4
+  lr: 1.0e-3
+  epochs: 1
+  seed: 42
+  data_dir: data/tokenized/
+  save_path: checkpoints/base_model_15M.pt
