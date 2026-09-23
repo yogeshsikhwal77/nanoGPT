@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Inside nanoGPT: A Visual Code Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Pure white base theme */
+    --bg: #ffffff;
+    --bg-alt: #f8fafc;
+    --panel: #ffffff;
+    --panel2: #f1f5f9;
+    --border: #e2e8f0;
+    --border-soft: #f1f5f9;
+    
+    /* Typography */
+    --text: #0f172a;
+    --text-dim: #475569;
+    --text-faint: #94a3b8;
+    
+    /* Vibrant Multi-Colors */
+    --orange: #ff5e00;
+    --red: #ff2a55;
+    --violet: #8a2be2;
+    --blue: #007aff;
+    --teal: #06b6d4;
+    --green: #10b981;
+    
+    /* Code / Console elements (kept dark for contrast) */
+    --console-bg: #0f172a;
+    --console-text: #f8fafc;
+    --console-dim: #64748b;
+    --console-border: #1e293b;
+    --console-cell-bg: #1e293b;
+    --console-amber: #f59e0b;
+    --console-teal: #2dd4bf;
+    --console-violet: #a78bfa;
+    
+    box-sizing: border-box;
+  }
+  
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "IBM Plex Sans", -apple-system, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- Animations ---------- */
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  @keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes flowDown {
+    0% { background-position: 0 -200%; }
+    100% { background-position: 0 200%; }
+  }
+
+  /* ---------- Hero ---------- */
+  header.hero {
+    position: relative;
+    border-bottom: 1px solid var(--border-soft);
+    padding: 80px 0 64px;
+    background: linear-gradient(-45deg, rgba(255,94,0,0.05), rgba(255,42,85,0.05), rgba(138,43,226,0.05), rgba(0,122,255,0.05));
+    background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
+    overflow: hidden;
+  }
+  
+  header.hero::before, header.hero::after {
+    content: '';
+    position: absolute;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    filter: blur(80px);
+    z-index: 0;
+    opacity: 0.5;
+  }
+  header.hero::before {
+    background: rgba(255, 94, 0, 0.2);
+    top: -50px; left: -100px;
+  }
+  header.hero::after {
+    background: rgba(0, 122, 255, 0.2);
+    bottom: -100px; right: -50px;
+  }
+  
+  .hero .wrap { position: relative; z-index: 1; animation: slideUpFade 0.8s ease forwards; }
+
+  .eyebrow-line {
+    font-size: 13px;
+    color: var(--text-faint);
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+  .eyebrow-line .path { color: var(--violet); }
+  
+  h1 {
+    font-size: clamp(32px, 5vw, 48px);
+    line-height: 1.15;
+    margin: 0 0 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, var(--orange), var(--red), var(--violet), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 200% auto;
+    animation: gradientShift 6s linear infinite;
+  }
+  
+  .hero p.sub {
+    color: var(--text-dim);
+    font-size: 18px;
+    max-width: 65ch;
+    margin: 0;
+    font-weight: 400;
+  }
+
+  /* ---------- Section scaffolding ---------- */
+  section { 
+    padding: 72px 0; 
+    border-bottom: 1px solid var(--border-soft); 
+    animation: slideUpFade 0.8s ease forwards;
+  }
+  section:last-of-type { border-bottom: none; }
+  
+  .kicker {
+    font-size: 14px;
+    margin: 0 0 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, var(--orange), var(--red));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  h2 {
+    font-size: 28px;
+    margin: 0 0 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+  section > p.lede {
+    color: var(--text-dim);
+    max-width: 75ch;
+    margin: 0 0 32px;
+    font-size: 16px;
+  }
+
+  /* ---------- Pipeline diagram ---------- */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 40px 0 16px;
+  }
+  .stage {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    color: var(--text);
+    font-family: inherit;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .stage::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 4px; height: 100%;
+    background: transparent;
+    transition: all 0.3s ease;
+  }
+  .stage:hover { 
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+    border-color: rgba(0, 122, 255, 0.3);
+  }
+  .stage.active { 
+    border-color: var(--violet); 
+    box-shadow: 0 8px 20px rgba(138, 43, 226, 0.15);
+    background: #faf5ff;
+  }
+  .stage.active::before {
+    background: linear-gradient(to bottom, var(--violet), var(--blue));
+  }
+
+  .stage .badge {
+    flex: 0 0 auto;
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; 
+    color: var(--blue);
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+  .stage:hover .badge { color: var(--violet); border-color: rgba(138,43,226,0.3); }
+  .stage.active .badge { 
+    background: linear-gradient(135deg, var(--violet), var(--blue)); 
+    color: white; 
+    border: none;
+  }
+  
+  .stage .name { font-weight: 600; font-size: 16px; }
+  .stage .shape {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--text-faint);
+    white-space: nowrap;
+    background: var(--bg-alt);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border-soft);
+  }
+  .stage .shape b { color: var(--violet); font-weight: 600; }
+  
+  .connector {
+    width: 2px;
+    height: 24px;
+    margin-left: 36px;
+    position: relative;
+    background: linear-gradient(to bottom, transparent, var(--border), transparent);
+  }
+  .stage.active + .connector {
+    background: linear-gradient(to bottom, var(--violet), var(--blue));
+    background-size: 100% 200%;
+    animation: flowDown 1.5s linear infinite;
+  }
+
+  /* ---------- Detail cards ---------- */
+  .detail {
+    display: none;
+    margin-top: 24px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+    overflow: hidden;
+  }
+  .detail.open { 
+    display: block; 
+    animation: slideUpFade 0.4s ease forwards;
+  }
+  .detail-head { padding: 24px 24px 0; }
+  .detail-head h3 { margin: 0 0 8px; font-size: 18px; color: var(--violet); }
+  .detail-head p { margin: 0 0 20px; color: var(--text-dim); font-size: 15px; max-width: 66ch; }
+  .detail-body { padding: 0 24px 24px; display: grid; gap: 20px; }
+  @media (min-width: 760px) {
+    .detail-body.two-col { grid-template-columns: 1fr 1fr; align-items: start; }
+  }
+
+  pre.code {
+    margin: 0;
+    background: var(--console-bg);
+    border: 1px solid var(--console-border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+    color: var(--console-text);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+    position: relative;
+  }
+  pre.code::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 3px;
+    background: linear-gradient(90deg, var(--orange), var(--red), var(--violet), var(--blue));
+  }
+  
+  .kw { color: var(--red); font-weight: 500; }
+  .str { color: var(--console-teal); }
+  .num { color: var(--orange); }
+  .cmt { color: var(--console-dim); font-style: italic; }
+  .fn { color: var(--blue); }
+  .dec { color: var(--console-amber); } /* Decorator */
+
+  .note {
+    font-size: 14px;
+    color: var(--text-dim);
+    background: linear-gradient(to right, rgba(0,122,255,0.05), transparent);
+    border: 1px solid var(--border-soft);
+    border-left: 3px solid var(--blue);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .note b { color: var(--text); font-weight: 600; }
+
+  /* ---------- causal mask grid ---------- */
+  .mask-wrap { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .mask-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 32px);
+    grid-template-rows: repeat(6, 32px);
+    gap: 4px;
+  }
+  .mask-cell {
+    border-radius: 6px;
+    background: var(--border-soft);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; color: var(--text-faint);
+    transition: all 0.3s ease;
+  }
+  .mask-cell.open { 
+    background: linear-gradient(135deg, var(--orange), var(--red)); 
+    color: white; 
+    box-shadow: 0 2px 5px rgba(255, 42, 85, 0.3);
+  }
+  .mask-legend { font-size: 13px; color: var(--text-dim); }
+
+  /* ---------- weight tying diagram ---------- */
+  .tie-wrap { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 12px 0; }
+  .tie-box {
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13px;
+    text-align: center;
+    min-width: 140px;
+    font-weight: 600;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+  }
+  .tie-box .dim { color: var(--blue); font-size: 12px; margin-top: 6px; font-weight: 400; background: rgba(0,122,255,0.1); border-radius: 4px; padding: 2px 0;}
+  .tie-arrow { color: var(--violet); font-size: 14px; text-align: center; font-weight: 500; }
+
+  /* ---------- toy example ---------- */
+  .toy-controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  button.step-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+  button.step-btn:hover { border-color: var(--text-dim); transform: translateY(-1px); }
+  button.step-btn.primary { 
+    background: linear-gradient(135deg, var(--violet), var(--blue));
+    color: white;
+    border: none;
+    box-shadow: 0 4px 10px rgba(138,43,226,0.3);
+  }
+  button.step-btn.primary:hover {
+    box-shadow: 0 6px 15px rgba(138,43,226,0.4);
+    transform: translateY(-2px);
+  }
+  
+  .trace {
+    background: var(--console-bg);
+    border: 1px solid var(--console-border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    min-height: 240px;
+    font-size: 13.5px;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
+  }
+  .trace-line { margin-bottom: 8px; color: var(--console-text); }
+  .trace-tag { color: var(--red); font-weight: 500; }
+  .trace-dim { color: var(--teal); }
+  .trace-fade { color: var(--console-dim); }
+  .mat-row { display: flex; gap: 6px; margin: 4px 0; }
+  .mat-cell {
+    background: var(--console-cell-bg);
+    border: 1px solid #2d3748;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: #e2e8f0;
+    min-width: 48px;
+    text-align: center;
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  /* ---------- param calculator ---------- */
+  .calc {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 32px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+  }
+  @media (min-width: 700px) { .calc { grid-template-columns: 1.1fr 0.9fr; } }
+  
+  .slider-row { margin-bottom: 20px; }
+  .slider-row label { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .slider-row label span.val { color: var(--blue); font-family: "IBM Plex Mono", monospace; font-weight: 500; background: rgba(0,122,255,0.1); padding: 2px 8px; border-radius: 4px; }
+  
+  input[type=range] {
+    width: 100%;
+    height: 6px;
+    border-radius: 4px;
+    appearance: none;
+    background: var(--border-soft);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid var(--blue);
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+  
+  #s-dim::-webkit-slider-thumb { border-color: var(--orange); }
+  #s-layers::-webkit-slider-thumb { border-color: var(--red); }
+  #s-ctx::-webkit-slider-thumb { border-color: var(--violet); }
+  #s-vocab::-webkit-slider-thumb { border-color: var(--blue); }
+
+  .calc-total {
+    background: linear-gradient(135deg, var(--bg-alt), white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .calc-total .big { 
+    font-size: 38px; 
+    font-weight: 700; 
+    font-family: "IBM Plex Mono", monospace; 
+    background: linear-gradient(90deg, var(--orange), var(--red));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .calc-total .lbl { font-size: 14px; font-weight: 600; color: var(--text-dim); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  .calc-breakdown { margin-top: 20px; font-size: 13px; color: var(--text-dim); text-align: left; }
+  .calc-breakdown div { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+  .calc-breakdown span.v { color: var(--violet); font-family: "IBM Plex Mono", monospace; font-weight: 600; }
+
+  footer {
+    padding: 40px 0 60px;
+    color: var(--text-faint);
+    font-size: 14px;
+    text-align: center;
+    border-top: 1px solid var(--border-soft);
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow-line">nanoGPT <span class="path">/ src/nanogpt/model.py</span></div>
+    <h1>Inside a 14.6M-parameter GPT</h1>
+    <p class="sub">From raw integer IDs to fully contextualized vocabulary logits. This interactive guide maps directly to the precise PyTorch code that powers nanoGPT's causal self-attention, MLP blocks, and optimized training loop.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ======================= PIPELINE ======================= -->
+  <section id="pipeline-section">
+    <p class="kicker">01 — The Model Architecture (The GPT Class)</p>
+    <h2>The Forward Pass Pipeline</h2>
+    <p class="lede">The `GPT.forward()` method manages the macro-structure. Every stage receives a tensor shaped <span class="mono">(Batch, Time, Channels)</span> and preserves it — until the final LM Head maps it to <span class="mono">vocab_size</span>. Click a stage to see the corresponding PyTorch logic.</p>
+
+    <div class="pipeline" id="pipeline">
+      <button class="stage" data-stage="embed">
+        <div class="badge">➜</div>
+        <div class="name">Token + Position Embedding</div>
+        <div class="shape">(B, T) → <b>(B, T, 384)</b></div>
+      </button>
+      <div class="connector"></div>
+      
+      <button class="stage" data-stage="block">
+        <div class="badge">×6</div>
+        <div class="name">Transformer Block (Pre-Norm, Attn, MLP)</div>
+        <div class="shape"><b>(B, T, 384)</b> → (B, T, 384)</div>
+      </button>
+      <div class="connector"></div>
+      
+      <button class="stage" data-stage="lnf">
+        <div class="badge">‖</div>
+        <div class="name">Final LayerNorm</div>
+        <div class="shape">(B, T, 384) → <b>(B, T, 384)</b></div>
+      </button>
+      <div class="connector"></div>
+      
+      <button class="stage" data-stage="head">
+        <div class="badge">🡒</div>
+        <div class="name">LM Head & Weight Tying</div>
+        <div class="shape">(B, T, 384) → <b>(B, T, 10000)</b></div>
+      </button>
+      <div class="connector"></div>
+      
+      <button class="stage" data-stage="loss">
+        <div class="badge">Σ</div>
+        <div class="name">Cross-Entropy Loss (with SFT Masking)</div>
+        <div class="shape">logits, targets → <b>scalar</b></div>
+      </button>
+    </div>
+
+    <!-- Detail: Embedding -->
+    <div class="detail" id="detail-embed">
+      <div class="detail-head">
+        <h3>Token + Position Embedding</h3>
+        <p>Every token id looks up a row in a <span class="mono">vocab_size × dim</span> matrix. Simultaneously, its sequential position (0 to T−1) looks up a row in a <span class="mono">context_len × dim</span> matrix. The two vectors are simply added together.</p>
+      </div>
+      <div class="detail-body two-col">
+        <pre class="code" data-lang>self.tok_emb = nn.Embedding(cfg.vocab_size, cfg.dim)
+self.pos_emb = nn.Embedding(cfg.context_len, cfg.dim)
+# ... inside forward() ...
+pos = torch.arange(T, device=idx.device)
+x = self.tok_emb(idx) + self.pos_emb(pos)</pre>
+        <div class="note"><b>Learned, not sinusoidal:</b> Notice we use `nn.Embedding` for positions. One distinct trainable row per position. Because of this, `cfg.context_len` is a hard physical ceiling; the model literally does not have parameters to read position `context_len + 1`.</div>
+      </div>
+    </div>
+
+    <!-- Detail: Block -->
+    <div class="detail" id="detail-block">
+      <div class="detail-head">
+        <h3>The Transformer Block</h3>
+        <p>The core of GPT is the repeated `Block` class. It enforces the "Pre-norm Residual" architecture, which allows gradients to flow effortlessly back to the embeddings through the addition (`+`) operations.</p>
+      </div>
+      <div class="detail-body two-col">
+        <pre class="code" data-lang>class Block(nn.Module):
+    def __init__(self, cfg: ModelConfig):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(cfg.dim)
+        self.attn = CausalSelfAttention(cfg)
+        self.ln2 = nn.LayerNorm(cfg.dim)
+        self.mlp = MLP(cfg)
+
+    def forward(self, x):
+        x = x + self.attn(self.ln1(x))
+        x = x + self.mlp(self.ln2(x))
+        return x</pre>
+        <div class="note">
+          Read <span class="mono">x = x + attn(ln1(x))</span> as: <b>"add what attention noticed to what was already there."</b> The residual stream `x` acts as a central highway. Sub-layers only read from it (after normalization) and add their findings back into it.
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail: LN final -->
+    <div class="detail" id="detail-lnf">
+      <div class="detail-head">
+        <h3>Final LayerNorm</h3>
+        <p>After `cfg.layers` blocks, the residual stream has accumulated massive variance. A final `LayerNorm` stabilizes the tensor right before predicting the vocabulary.</p>
+      </div>
+      <div class="detail-body">
+        <pre class="code" data-lang>self.ln_f = nn.LayerNorm(cfg.dim)
+# ...
+for block in self.blocks:
+    x = block(x)
+x = self.ln_f(x)</pre>
+      </div>
+    </div>
+
+    <!-- Detail: head -->
+    <div class="detail" id="detail-head">
+      <div class="detail-head">
+        <h3>LM Head & Weight Tying</h3>
+        <p>The linear layer that maps our `dim` channels to `vocab_size` scores shares the exact same memory as the input `tok_emb`. This is a classic trick to save parameters.</p>
+      </div>
+      <div class="detail-body two-col">
+        <pre class="code" data-lang>self.lm_head = nn.Linear(cfg.dim, cfg.vocab_size, bias=False)
+# weight tying: LM head shares token embedding matrix
+self.lm_head.weight = self.tok_emb.weight</pre>
+        <div class="tie-wrap" style="flex-direction:column;">
+          <div class="tie-box">tok_emb.weight<div class="dim">vocab_size × dim</div></div>
+          <div class="tie-arrow">↕ same tensor, shared in memory</div>
+          <div class="tie-box">lm_head.weight<div class="dim">vocab_size × dim (transposed internally)</div></div>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="note">If `vocab=10000` and `dim=384`, this tying saves <b>~3.84 Million parameters</b>. It also ensures the model learns a unified representation for "reading" a word and "writing" a word.</div>
+      </div>
+    </div>
+
+    <!-- Detail: loss -->
+    <div class="detail" id="detail-loss">
+      <div class="detail-head">
+        <h3>Cross-Entropy & SFT Masking</h3>
+        <p>By flattening the batch and time dimensions, we can calculate loss efficiently. NanoGPT also uses `-100` natively to ignore prompt tokens during supervised fine-tuning (SFT).</p>
+      </div>
+      <div class="detail-body two-col">
+        <pre class="code" data-lang>loss = None
+if targets is not None:
+    loss = F.cross_entropy(
+        logits.view(-1, logits.size(-1)),
+        targets.view(-1),
+        ignore_index=-100,  # SFT masking works for free
+    )</pre>
+        <div class="note">The `ignore_index=-100` tells PyTorch to completely skip those targets when computing the gradient. The model.py code doesn't need to know if it's fine-tuning or pre-training; it just obeys the `-100`s passed by the dataset loader.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= ATTENTION DEEP DIVE ======================= -->
+  <section id="attention-section">
+    <p class="kicker">02 — Inside CausalSelfAttention</p>
+    <h2>Multi-Head Causal Attention</h2>
+    <p class="lede">Tokens query each other to understand context. To prevent tokens from "cheating" and looking at the future during training, a lower-triangular causal mask is enforced.</p>
+
+    <div class="detail-body two-col" style="padding:0;">
+      <pre class="code" data-lang>def forward(self, x):
+    B, T, C = x.shape
+    q, k, v = self.qkv(x).split(C, dim=2)
+    # (B, T, C) -> (B, heads, T, head_dim)
+    q = q.view(B, T, self.heads, self.head_dim).transpose(1, 2)
+    k = k.view(B, T, self.heads, self.head_dim).transpose(1, 2)
+    v = v.view(B, T, self.heads, self.head_dim).transpose(1, 2)
+
+    # PyTorch's ultra-fast Flash Attention implementation
+    y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+
+    y = y.transpose(1, 2).contiguous().view(B, T, C)
+    return self.proj(y)</pre>
+      <div>
+        <div class="mask-wrap">
+          <div class="mask-grid" id="maskGrid"></div>
+          <div class="mask-legend" style="margin-bottom:12px;"><span style="color:var(--orange)">■</span> Token can attend here &nbsp;&nbsp; <span style="color:var(--text-faint)">■</span> Masked out (-inf)</div>
+        </div>
+        <div class="note" style="margin-top:12px;">
+          <b>The Multi-Head Dance:</b> We project `x` into a massive `3 * dim` tensor, chunk it into Q, K, and V, and reshape it into `heads`. Because `head_dim` = `dim / heads`, the math perfectly balances out. The `transpose(1, 2)` swaps Time and Heads, so matrix multiplications happen across the sequence.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= MLP DEEP DIVE ======================= -->
+  <section id="mlp-section">
+    <p class="kicker">03 — Inside The MLP</p>
+    <h2>The Feed-Forward Network</h2>
+    <p class="lede">While Attention is about tokens communicating with <i>each other</i>, the MLP is where tokens process what they've learned <i>individually</i>. It expands the channel dimension by 4x to do complex reasoning, then compresses it back down.</p>
+
+    <div class="detail-body two-col" style="padding:0;">
+      <pre class="code" data-lang>class MLP(nn.Module):
+    def __init__(self, cfg: ModelConfig):
+        super().__init__()
+        # Expands dim (e.g. 384 -> 1536)
+        self.fc1 = nn.Linear(cfg.dim, 4 * cfg.dim, bias=False)
+        # Contracts back (e.g. 1536 -> 384)
+        self.fc2 = nn.Linear(4 * cfg.dim, cfg.dim, bias=False)
+
+    def forward(self, x):
+        return self.fc2(F.gelu(self.fc1(x)))</pre>
+      
+      <div class="note">
+        <b>GELU Activation:</b> `F.gelu` (Gaussian Error Linear Unit) is the standard activation for GPTs. It's smoother than ReLU and allows small negative values to flow through, which prevents dead neurons during training.<br><br>
+        Also note `bias=False`. Modern LLMs drop biases in Linear layers to save memory and slightly increase throughput without losing performance.
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= WEIGHT INIT ======================= -->
+  <section id="init-section">
+    <p class="kicker">04 — Model Initialization</p>
+    <h2>Scaling the Residual Gradients</h2>
+    <p class="lede">If you initialize deep networks improperly, the variance explodes. The `GPT` class includes a crucial, specific normalization tweak for layers that write directly back into the residual stream.</p>
+
+    <div class="detail-body" style="padding:0;">
+      <pre class="code" data-lang>self.apply(self._init_weights)
+# smaller init on layers that write into the residual stream
+for name, p in self.named_parameters():
+    if name.endswith("proj.weight") or name.endswith("fc2.weight"):
+        nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * cfg.layers))
+
+@staticmethod
+def _init_weights(module):
+    if isinstance(module, nn.Linear) or isinstance(module, nn.Embedding):
+        nn.init.normal_(module.weight, mean=0.0, std=0.02)</pre>
+    </div>
+    <div class="detail-body two-col" style="padding:0; margin-top:20px;">
+      <div class="note"><b>The Base Init:</b> Linear layers and embeddings start with a Gaussian distribution of `std=0.02`.</div>
+      <div class="note" style="border-left-color: var(--orange);"><b>The Residual Scaling:</b> `proj.weight` (from Attention) and `fc2.weight` (from MLP) are the final steps before `x = x + layer(x)`. Because we add to the stream `2 * layers` times, we scale their initialization down by `1 / sqrt(2 * layers)` to keep the variance at ~1.0 at initialization.</div>
+    </div>
+  </section>
+
+  <!-- ======================= TOY WALKTHROUGH ======================= -->
+  <section id="toy-section">
+    <p class="kicker">05 — Worked example, at toy scale</p>
+    <h2>Trace three tokens through a tiny GPT</h2>
+    <p class="lede">The real model uses 384 channels and 6 layers — too wide to read. Here's the exact same forward pass mathematics simulated at <span class="mono">dim=4, heads=2, layers=1, vocab=6</span> for the sequence <span class="mono">"the cat sat"</span>, so you can see real numbers move.</p>
+
+    <div class="toy-controls">
+      <button class="step-btn primary" id="toyRun">▶ Run the trace</button>
+      <button class="step-btn" id="toyReset">Reset</button>
+    </div>
+    <div class="trace" id="toyTrace">
+      <div class="trace-fade">Press "Run the trace" to step through the forward pass matrices.</div>
+    </div>
+  </section>
+
+  <!-- ======================= PARAM CALCULATOR ======================= -->
+  <section id="calc-section">
+    <p class="kicker">06 — Parameter budget</p>
+    <h2>Where the 14.6M parameters live</h2>
+    <p class="lede">Every linear layer here has <span class="mono">bias=False</span>, and the head is tied — so total parameters reduce to a clean math formula. Drag the sliders to see how the `base.yaml` config lands near 14.6M.</p>
+
+    <div class="calc">
+      <div>
+        <div class="slider-row">
+          <label>dim (residual width) <span class="val" id="v-dim" style="color:var(--orange)">384</span></label>
+          <input type="range" id="s-dim" min="32" max="768" step="8" value="384">
+        </div>
+        <div class="slider-row">
+          <label>layers <span class="val" id="v-layers" style="color:var(--red)">6</span></label>
+          <input type="range" id="s-layers" min="1" max="16" step="1" value="6">
+        </div>
+        <div class="slider-row">
+          <label>context_len <span class="val" id="v-ctx" style="color:var(--violet)">256</span></label>
+          <input type="range" id="s-ctx" min="32" max="1024" step="16" value="256">
+        </div>
+        <div class="slider-row">
+          <label>vocab_size <span class="val" id="v-vocab" style="color:var(--blue)">10000</span></label>
+          <input type="range" id="s-vocab" min="1000" max="32000" step="500" value="10000">
+        </div>
+      </div>
+      <div class="calc-total">
+        <div class="big" id="calc-big">14,565,120</div>
+        <div class="lbl">total parameters</div>
+        <div class="calc-breakdown">
+          <div><span>Token + position embedding (tied)</span><span class="v" id="b-emb">3.94M</span></div>
+          <div><span>Transformer Blocks (Attn + MLP)</span><span class="v" id="b-blk">10.62M</span></div>
+          <div><span>Layer Norms</span><span class="v" id="b-ln">9,984</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Built from the provided Python source code. Visualizes exactly how `model.py` constructs a GPT model.
+  </footer>
+</div>
+
+<script>
+// ---------------- Stage toggling ----------------
+const stages = document.querySelectorAll('.stage');
+stages.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.stage;
+    const detail = document.getElementById('detail-' + id);
+    const isOpen = detail.classList.contains('open');
+    document.querySelectorAll('.detail').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+    if (!isOpen) {
+      detail.classList.add('open');
+      btn.classList.add('active');
+      detail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+});
+// open the first stage by default
+stages[0].click();
+
+// ---------------- Causal mask grid ----------------
+const grid = document.getElementById('maskGrid');
+for (let r = 0; r < 6; r++) {
+  for (let c = 0; c < 6; c++) {
+    const cell = document.createElement('div');
+    cell.style.animationDelay = `${(r + c) * 0.05}s`;
+    
+    if (c <= r) {
+      cell.className = 'mask-cell open';
+      cell.textContent = '1';
+    } else {
+      cell.className = 'mask-cell';
+      cell.textContent = '-∞';
+      cell.style.fontSize = '14px';
+    }
+    grid.appendChild(cell);
+  }
+}
+
+// ---------------- Toy forward-pass trace ----------------
+function seededRand(seed) {
+  let s = seed;
+  return () => {
+    s = (s * 9301 + 49297) % 233280;
+    return (s / 233280) * 2 - 1; // roughly [-1, 1]
+  };
+}
+function round2(x) { return Math.round(x * 100) / 100; }
+function matRowsHTML(mat, label) {
+  return `<div class="trace-fade" style="margin:8px 0 4px; font-weight:600; color:#cbd5e1;">${label}</div>` +
+    mat.map((row, i) => `<div class="mat-row" style="animation: slideUpFade 0.3s ease forwards; animation-delay:${i*0.05}s; opacity:0;">${row.map(v => `<div class="mat-cell">${round2(v)}</div>`).join('')}</div>`).join('');
+}
+
+document.getElementById('toyRun').addEventListener('click', () => {
+  const out = document.getElementById('toyTrace');
+  out.innerHTML = '';
+  const lines = [];
+
+  const dim = 4, vocab = 6, T = 3;
+  const ids = [0, 1, 2]; // toy vocab ids
+
+  lines.push(`<div class="trace-line"><span class="trace-tag">idx</span> = [${ids.join(', ')}]  <span class="trace-fade">// "the cat sat", shape (1, 3)</span></div>`);
+
+  const rnd = seededRand(42);
+  const tokEmb = ids.map((id) => Array.from({length: dim}, () => round2(rnd())));
+  const posEmb = [0,1,2].map(() => Array.from({length: dim}, () => round2(rnd() * 0.3)));
+  const x0 = tokEmb.map((row, i) => row.map((v, j) => round2(v + posEmb[i][j])));
+
+  lines.push(`<div class="trace-line" style="margin-top:16px;"><span class="trace-tag">x = tok_emb(idx) + pos_emb(pos)</span>  <span class="trace-dim">shape (1, 3, 4)</span></div>`);
+  lines.push(matRowsHTML(x0, 'x (one row per token, 4 channels each):'));
+
+  // fake causal attention weights
+  const attnW = [
+    [1, 0, 0],
+    [0.5, 0.5, 0],
+    [0.33, 0.33, 0.34],
+  ];
+  lines.push(`<div class="trace-line" style="margin-top:20px;"><span class="trace-tag">attention weights</span> <span class="trace-fade">(causal mask forces 0s in upper triangle)</span></div>`);
+  lines.push(matRowsHTML(attnW, 'softmax(QKᵀ/√d) per head:'));
+
+  const attnOut = attnW.map(wrow =>
+    Array.from({length: dim}, (_, j) => round2(wrow.reduce((s, w, i) => s + w * x0[i][j], 0)))
+  );
+  
+  const x1 = x0.map((row, i) => row.map((v, j) => round2(v + attnOut[i][j])));
+  lines.push(`<div class="trace-line" style="margin-top:16px;"><span class="trace-tag">x = x + attn(ln1(x))</span>  <span class="trace-fade">Attention output added back to residual</span></div>`);
+  lines.push(matRowsHTML(x1, 'x after attention:'));
+
+  const mlpOut = x1.map(row => row.map(v => round2(Math.tanh(v) * 0.5))); // fake GELU
+  const x2 = x1.map((row, i) => row.map((v, j) => round2(v + mlpOut[i][j])));
+  lines.push(`<div class="trace-line" style="margin-top:20px;"><span class="trace-tag">x = x + mlp(ln2(x))</span>  <span class="trace-fade">MLP expanded out to 4×dim, activated, and projected back</span></div>`);
+  lines.push(matRowsHTML(x2, 'x after the full Transformer Block:'));
+
+  lines.push(`<div class="trace-line" style="margin-top:20px;"><span class="trace-tag">logits = lm_head(ln_f(x))</span>  <span class="trace-dim">shape (1, 3, 6)</span></div>`);
+  const logits = x2.map(() => Array.from({length: vocab}, () => round2(rnd() * 3)));
+  lines.push(matRowsHTML(logits, 'Logits at the last position ("sat" predicting the next token):'));
+
+  const last = logits[2];
+  const maxIdx = last.indexOf(Math.max(...last));
+  lines.push(`<div class="trace-line" style="margin-top:16px; animation: slideUpFade 0.4s ease forwards; animation-delay:0.8s; opacity:0;">Highest score is at vocab index <span class="trace-tag" style="background:rgba(255,42,85,0.15); padding:2px 8px; border-radius:4px;">${maxIdx}</span>. That becomes the predicted next token.</div>`);
+
+  out.innerHTML = lines.join('');
+});
+document.getElementById('toyReset').addEventListener('click', () => {
+  document.getElementById('toyTrace').innerHTML = '<div class="trace-fade">Press "Run the trace" to step through the forward pass matrices.</div>';
+});
+
+// ---------------- Param calculator ----------------
+const sDim = document.getElementById('s-dim');
+const sLayers = document.getElementById('s-layers');
+const sCtx = document.getElementById('s-ctx');
+const sVocab = document.getElementById('s-vocab');
+
+function fmt(n) { return n.toLocaleString('en-US'); }
+function fmtM(n) { return (n / 1e6).toFixed(2) + 'M'; }
+
+function recalc() {
+  const dim = +sDim.value, layers = +sLayers.value, ctx = +sCtx.value, vocab = +sVocab.value;
+  document.getElementById('v-dim').textContent = dim;
+  document.getElementById('v-layers').textContent = layers;
+  document.getElementById('v-ctx').textContent = ctx;
+  document.getElementById('v-vocab').textContent = vocab;
+
+  const emb = vocab * dim + ctx * dim;             // tok_emb (tied) + pos_emb
+  const perBlock = 12 * dim * dim;                 // qkv(3d²)+proj(d²) + mlp(4d²+4d²) = 12d²
+  const blocks = layers * perBlock;
+  const ln = layers * 2 * (2 * dim) + 2 * dim;     // 2 LN per block + final LN, each ~2*dim params
+  const total = emb + blocks + ln;
+
+  document.getElementById('calc-big').textContent = fmt(total);
+  document.getElementById('b-emb').textContent = fmtM(emb);
+  document.getElementById('b-blk').textContent = fmtM(blocks);
+  document.getElementById('b-ln').textContent = fmt(ln);
+}
+[sDim, sLayers, sCtx, sVocab].forEach(el => el.addEventListener('input', recalc));
+recalc();
+
+// ---------------- tiny code highlighter (static code, safe to regex) ----------------
+document.querySelectorAll('pre.code[data-lang]').forEach(block => {
+  let code = block.textContent;
+  code = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  code = code.replace(/(#.*$)/gm, '<span class="cmt">$1</span>');
+  code = code.replace(/(&quot;.*?&quot;|'[^']*'|"(?:[^"\\]|\\.)*")/g, '<span class="str">$1</span>');
+  code = code.replace(/@staticmethod/g, '<span class="dec">@staticmethod</span>');
+  code = code.replace(/\b(def|class|super|import|from|return|if|else|elif|for|in|is|not|None|True|False|as|and|or)\b/g, '<span class="kw">$1</span>');
+  code = code.replace(/\b(\d+\.?\d*)\b/g, '<span class="num">$1</span>');
+  code = code.replace(/\b([a-zA-Z_]\w*)(?=\()/g, '<span class="fn">$1</span>');
+  block.innerHTML = code;
+});
+</script>
+</body>
+</html>
