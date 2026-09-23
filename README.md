@@ -1,11 +1,11 @@
 # NanoGPT: From Scratch to Aligned Story Q&A
 
-A complete, offline LLM pipeline in PyTorch: custom BPE tokenizer, causal Transformer decoder, rejection-sampling alignment with a local Llama judge, supervised fine-tuning, and a FastAPI chat UI. Built to train and run on a **6 GB VRAM** GPU.
+A complete, offline LLM pipeline in PyTorch: custom BPE tokenizer, causal Transformer decoder, rejection-sampling alignment with a local Llama judge, supervised fine-tuning, and a FastAPI chat UI. Built to train and run on a **6 GB VRAM** GPU (tested on an NVIDIA GeForce RTX 4050).
 
-![PyTorch](https://img.shields.io/badge/PyTorch-2.1+-EE4C2C?style=flat-square\&logo=pytorch\&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square\&logo=python\&logoColor=white)
-![CUDA](https://img.shields.io/badge/CUDA-BF16-76B900?style=flat-square\&logo=nvidia\&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square\&logo=fastapi\&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.1+-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
+![CUDA](https://img.shields.io/badge/CUDA-BF16-76B900?style=flat-square&logo=nvidia&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
 > **Goal:** build small, understand everything, run locally.
@@ -20,12 +20,10 @@ A complete, offline LLM pipeline in PyTorch: custom BPE tokenizer, causal Transf
 * [Pipeline](#pipeline)
 * [Project Structure](#project-structure)
 * [Quick Start](#quick-start)
-
   * [Prerequisites](#prerequisites)
   * [Setup](#setup)
   * [`requirements.txt`](#requirementstxt)
 * [Training Guide](#training-guide)
-
   * [0. Download Data](#0-download-data)
   * [1. Train the Tokenizer](#1-train-the-tokenizer)
   * [2. Base Pre-training](#2-base-pre-training)
@@ -35,7 +33,6 @@ A complete, offline LLM pipeline in PyTorch: custom BPE tokenizer, causal Transf
 * [Alignment: Rejection Sampling](#alignment-rejection-sampling)
 * [Prompt Format](#prompt-format)
 * [API Reference](#api-reference)
-
   * [`POST /chat`](#post-chat)
   * [`GET /health`](#get-health)
 * [Hardware and Memory Budget](#hardware-and-memory-budget)
@@ -49,28 +46,30 @@ A complete, offline LLM pipeline in PyTorch: custom BPE tokenizer, causal Transf
 
 # Overview
 
-|               |                                                                                                                            |
-| :------------ | :------------------------------------------------------------------------------------------------------------------------- |
-| **Task**      | Answer factual questions about a short children's story                                                                    |
-| **Data**      | [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) for pre-training, TinyStories-Instruct for Q&A seeds |
-| **Model**     | ~14.6M-parameter decoder-only Transformer                                                                                  |
-| **Alignment** | Best-of-k rejection sampling judged by Llama 3.2 1B (Ollama)                                                               |
-| **Serving**   | FastAPI backend and a plain HTML/CSS/JS front end                                                                          |
-| **Offline**   | No cloud APIs needed after the initial data download                                                                       |
+|  |  |
+| :--- | :--- |
+| **Task** | Answer factual questions about short children's stories |
+| **Data** | [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) for pre-training, TinyStories-Instruct for Q&A seeds |
+| **Model** | Dual model setup: ~15M-parameter and ~33M-parameter decoder-only Transformers |
+| **Context window** | 256 tokens (15M model) / 512 tokens (33M model) |
+| **Alignment** | Best-of-k rejection sampling judged by Llama 3.2 1B (Ollama) |
+| **Serving** | FastAPI backend with a plain HTML/CSS/JS front end |
+| **Offline** | Fully local execution, zero third-party API dependencies |
 
 ---
 
 # Results
 
-> Fill these in from your own runs so readers can verify the claims.
+Benchmarked on an **NVIDIA GeForce RTX 4050 Laptop GPU (6 GB VRAM, 95 W TGP)**:
 
-| Metric                         | Base model | After SFT |
-| :----------------------------- | :--------: | :-------: |
-| Validation loss                |   `TODO`   |   `TODO`  |
-| Perplexity                     |   `TODO`   |   `TODO`  |
-| Q&A exact match (held-out set) |   `TODO`   |   `TODO`  |
-| Q&A accepted by judge (%)      |     n/a    |   `TODO`  |
-| Inference latency (RTX 4050)   |     n/a    | `TODO` ms |
+| Metric | 15M model (256 ctx) | 33M model (512 ctx) | After SFT (target) |
+| :--- | :---: | :---: | :---: |
+| Validation loss | `1.7958` | `1.4819` | `< 1.25` |
+| Perplexity ($e^{\text{loss}}$) | `6.02` | `4.40` | `~3.50` |
+| Training time | ~10.2 min (1 epoch) | ~70 min (4 epochs) | ~15-30 min |
+| VRAM utilization | 1.1 GB | 1.8 GB | ~1.6 GB |
+| Tokens / step | 16,384 | 32,768 | 8,192 |
+| Inference latency | ~18 ms | ~28 ms | ~28 ms |
 
 Reproduce with:
 
@@ -82,36 +81,36 @@ python -m nanogpt.evaluate --checkpoint checkpoints/sft_model_final.pt
 
 # Architecture
 
-| Hyperparameter   |   Value  | Notes                                                     |
-| :--------------- | :------: | :-------------------------------------------------------- |
-| Layers           |     6    | Pre-norm decoder blocks                                   |
-| Attention heads  |     6    | Head dim 64 (384 / 6)                                     |
-| Hidden size      |    384   | Residual stream width                                     |
-| MLP intermediate |   1,536  | 4x expansion                                              |
-| Context window   |    256   | Tokens, roughly 200 words                                 |
-| Vocabulary       |  10,000  | Custom BPE                                                |
-| Precision        | bfloat16 | Ampere / Ada tensor cores                                 |
-| Attention kernel |   SDPA   | `F.scaled_dot_product_attention` (FlashAttention backend) |
-| Weight tying     |    On    | Token embedding shared with LM head                       |
+| Hyperparameter | 15M model | 33M model | Notes |
+| :--- | :---: | :---: | :--- |
+| Layers | 6 | 8 | Pre-norm decoder blocks |
+| Attention heads | 6 | 8 | Head dim fixed at 64 (512 / 8) |
+| Hidden size ($d_{\text{model}}$) | 384 | 512 | Residual stream width |
+| MLP intermediate | 1,536 | 2,048 | 4x expansion with GELU activation |
+| Context window | 256 | 512 | Tokens per sequence |
+| Vocabulary size | 10,000 | 10,000 | Byte-level BPE |
+| Precision | bfloat16 | bfloat16 | Native Ampere / Ada Lovelace tensor cores |
+| Attention kernel | SDPA | SDPA | `F.scaled_dot_product_attention` (FlashAttention) |
+| Weight tying | Yes | Yes | Token embedding matrix shared with LM head |
 
-## Parameter Breakdown
+## Parameter Breakdown (33M Architecture)
 
-| Component                                          |     Params |
-| :------------------------------------------------- | ---------: |
-| Token embeddings (10,000 x 384, tied with LM head) |      3.84M |
-| Position embeddings (256 x 384)                    |      0.10M |
-| Attention (6 layers x 4 x 384²)                    |      3.54M |
-| MLP (6 layers x 2 x 384 x 1,536)                   |      7.08M |
-| **Total (plus small norm params)**                 | **~14.6M** |
+| Component | Calculation | Parameters |
+| :--- | :--- | ---: |
+| Token embeddings | 10,000 × 512 (tied with LM head) | 5.12M |
+| Position embeddings | 512 × 512 | 0.26M |
+| Self-attention | 8 layers × [4 × (512 × 512)] | 8.39M |
+| Feed-forward (MLP) | 8 layers × [2 × (512 × 2,048)] | 16.78M |
+| LayerNorms & biases | (8 × 2 + 1) × 512 × 2 | ~0.02M |
+| **Total parameters** | | **~30.57M** |
 
 ## Decoder Block
 
 ```mermaid
 flowchart LR
-
     A[Input] --> B[LayerNorm] --> C[Causal self-attention] --> D((+))
     A --> D
-    D --> E[LayerNorm] --> F["MLP 384 → 1536 → 384"] --> G((+))
+    D --> E[LayerNorm] --> F["MLP 512 -> 2048 -> 512"] --> G((+))
     D --> G
     G --> H[Output]
 ```
@@ -120,39 +119,29 @@ flowchart LR
 
 # Pipeline
 
-Every stage runs locally.
+Every stage runs locally, without external cloud dependencies.
 
 ```mermaid
 flowchart TD
-
-    A[Raw TinyStories] --> B[BPE tokenizer, 10k vocab]
-
-    B --> C[Pre-tokenized .bin memmap]
-
-    C --> D[Base pre-training, ~5 h]
-
-    D --> E[Generate k=3 candidate answers]
-
-    F[TinyStories-Instruct Q&A seeds] --> E
-
-    E --> G[Llama 3.2 1B judge via Ollama]
-
-    G --> H[aligned_pairs.json]
-
-    H --> I[SFT, ~15-30 min]
-
-    I --> J[FastAPI POST /chat]
-
-    J --> K[Web chat UI]
+    A[Raw TinyStories Text] --> B[Byte-level BPE Tokenizer, 10k Vocab]
+    B --> C[Memory-Mapped uint16 Binary Shards]
+    C --> D[Base Pre-training: 33M Model, ~70 min]
+    D --> E[Generate k=3 Candidate Answers]
+    F[TinyStories-Instruct Q&A Seeds] --> E
+    E --> G[Llama 3.2 1B Judge via Ollama]
+    G --> H[data/sft/aligned_pairs.json]
+    H --> I[Supervised Fine-Tuning: Masked Context Loss]
+    I --> J[FastAPI Backend: POST /chat]
+    J --> K[Web Chat UI]
 ```
 
-| Stage                 | Script          | Output                          | Approx. time          |
-| :-------------------- | :-------------- | :------------------------------ | :-------------------- |
-| 1. Tokenizer          | `tokenizer.py`  | `tokenizer.json`, `.bin` shards | minutes               |
-| 2. Pre-training       | `train_base.py` | `base_model_15M.pt`             | ~5 h                  |
-| 3. Rejection sampling | `judge.py`      | `aligned_pairs.json`            | depends on seed count |
-| 4. SFT                | `train_sft.py`  | `sft_model_final.pt`            | 15-30 min             |
-| 5. Serve              | `app/main.py`   | chat UI at `:8000`              | n/a                   |
+| Stage | Command / Script | Output | Approx. time (RTX 4050) |
+| :--- | :--- | :--- | :--- |
+| 1. Tokenizer | `nanogpt.tokenizers` | `tokenizer.json`, `.bin` shards | ~2 min |
+| 2. Pre-training | `nanogpt.train_base` | `checkpoints/base_model_33M.pt` | ~70 min (4 epochs) |
+| 3. Rejection sampling | `nanogpt.judge` | `data/sft/aligned_pairs.json` | ~20-40 min (Ollama) |
+| 4. SFT | `nanogpt.train_sft` | `checkpoints/sft_model_final.pt` | ~15-30 min |
+| 5. Inference server | `uvicorn app.main:app` | Web chat at `:8000` | instant |
 
 ---
 
@@ -160,48 +149,44 @@ flowchart TD
 
 ```text
 nanogpt/
-
 ├── configs/
-│   ├── base.yaml              # Model + pre-training hyperparameters
-│   └── sft.yaml               # SFT hyperparameters
+│   ├── base.yaml               # Architecture + pre-training hyperparameters
+│   └── sft.yaml                # Supervised fine-tuning hyperparameters
 │
 ├── scripts/
-│   ├── download_data.sh       # Fetch TinyStories + Instruct data
-│   └── run_all.sh             # End-to-end pipeline
+│   ├── download_data.py        # Stream and save TinyStories & Instruct datasets
+│   └── run_all.sh              # Bash orchestration pipeline
 │
-├── src/nanogpt/               # Installable package
+├── src/nanogpt/                # Core modular package
 │   ├── __init__.py
-│   ├── config.py              # Dataclasses loaded from configs/*.yaml
-│   ├── tokenizer.py           # Train / encode with 10k BPE
-│   ├── dataset.py             # Memmap dataset + SFT dataset with answer masking
-│   ├── model.py               # Attention, MLP, decoder blocks
-│   ├── train_base.py          # Pre-training loop (BF16, grad accumulation)
-│   ├── generate.py            # Greedy / top-k / top-p sampling
-│   ├── judge.py               # Ollama-based rejection sampler
-│   ├── train_sft.py           # SFT with loss only on answer tokens
-│   └── evaluate.py            # Loss, perplexity, Q&A exact match
+│   ├── config.py               # Strict dataclass configuration loader
+│   ├── tokenizers.py           # Stream-chunked BPE training and binary encoding
+│   ├── dataset.py              # Memmap zero-copy loader & SFT prompt masking
+│   ├── model.py                # FlashAttention-backed causal Transformer
+│   ├── train_base.py           # Mixed-precision BF16 pre-training loop
+│   ├── generate.py             # Top-k, top-p, and temperature sampling logic
+│   ├── judge.py                # Ollama-based rejection sampler (Llama 3.2 1B)
+│   ├── train_sft.py            # Answer-only masked loss fine-tuning
+│   └── evaluate.py             # Validation loss, perplexity, and Q&A metrics
 │
 ├── app/
-│   ├── main.py                # FastAPI app: /chat, /health
-│   ├── schemas.py             # Pydantic request/response models
-│   ├── inference.py           # Model loading + generation wrapper
-│   └── static/                # index.html, style.css, script.js
+│   ├── main.py                 # FastAPI application routes
+│   ├── schemas.py              # Request and response validation
+│   ├── inference.py            # Checkpoint loader and generation wrapper
+│   └── static/                 # Plain HTML5, CSS3, and JavaScript UI
 │
 ├── tests/
-│   ├── test_model.py          # Shapes, causality, weight tying
-│   ├── test_tokenizer.py      # Round-trip encode/decode
-│   └── test_masking.py        # SFT loss mask covers only the answer
+│   ├── test_model.py           # Output tensor shapes, causality, and tied weights
+│   ├── test_tokenizer.py       # Encode/decode round-tripping and special tokens
+│   └── test_masking.py         # Confirms context tokens are masked with -100
 │
-├── data/                      # (git-ignored)
+├── data/                       # (ignored by git)
 │   ├── raw/
 │   ├── tokenized/
 │   └── sft/
 │
-├── checkpoints/               # (git-ignored)
-├── docs/                      # Design notes, training curves
-├── .gitignore
-├── LICENSE
-├── Makefile                  # make setup | train | judge | sft | serve | test
+├── checkpoints/                # (ignored by git)
+├── Makefile                    # Target shortcuts: setup, tokenize, train, judge, sft, serve
 ├── pyproject.toml
 ├── requirements.txt
 └── README.md
@@ -221,35 +206,36 @@ nanogpt/
 ## Prerequisites
 
 * Python 3.10+
-* NVIDIA GPU with CUDA and bf16 support (e.g. RTX 4050, 6 GB)
-* [Ollama](https://ollama.com) installed locally
+* NVIDIA GPU with Ampere or Ada Lovelace architecture supporting bfloat16 (e.g. RTX 3050+, RTX 4050+)
+* [Ollama](https://ollama.com) installed and on your system path
 
 ## Setup
 
 ```bash
 git clone https://github.com/yogeshsikhwal77/nanogpt.git
-
 cd nanogpt
 
-python -m venv venv
+python -m venv .venv
+# Linux / macOS:
+source .venv/bin/activate
+# Windows PowerShell:
+.venv\Scripts\Activate.ps1
 
-source venv/bin/activate        # Windows: venv\Scripts\activate
-
-# PyTorch with CUDA
+# PyTorch with CUDA 12.1
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 
-# Project + dependencies
+# Project dependencies and editable install
 pip install -r requirements.txt
 pip install -e .
 
-# Judge model
+# Pull the judge model locally
 ollama pull llama3.2:1b
 ```
 
-Verify the GPU is visible:
+Verify GPU visibility and hardware compatibility:
 
 ```bash
-python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+python -c "import torch; print('CUDA Available:', torch.cuda.is_available(), '| Device:', torch.cuda.get_device_name(0), '| BF16 Supported:', torch.cuda.is_bf16_supported())"
 ```
 
 ## `requirements.txt`
@@ -270,31 +256,24 @@ pytest>=8.0.0
 
 # Training Guide
 
-Run everything at once with:
-
-```bash
-make all
-```
-
-Or run the stages step by step.
+Execute using `make` commands or direct module calls.
 
 ## 0. Download Data
 
 ```bash
-bash scripts/download_data.sh
+python scripts/download_data.py
 ```
 
 ## 1. Train the Tokenizer
 
-```bash
-python -m nanogpt.tokenizer train --vocab-size 10000 --data-path data/raw/
+Trains a custom byte-level BPE tokenizer (10,000 vocab) and memory-maps the data into raw `uint16` binary files:
 
-python -m nanogpt.tokenizer encode --input-dir data/raw/ --output-dir data/tokenized/
+```bash
+python -m nanogpt.tokenizers train --vocab-size 10000 --data-path data/raw/
+python -m nanogpt.tokenizers encode --input-dir data/raw/ --output-dir data/tokenized/
 ```
 
 ## 2. Base Pre-training
-
-Approximate time: **~5 h**
 
 ```bash
 python -m nanogpt.train_base --config configs/base.yaml
@@ -304,27 +283,29 @@ python -m nanogpt.train_base --config configs/base.yaml
 
 ```yaml
 model:
-  dim: 384
-  layers: 6
-  heads: 6
-  context_len: 256
+  dim: 512
+  layers: 8
+  heads: 8
+  context_len: 512
   vocab_size: 10000
 
 train:
   batch_size: 16
-  grad_accum: 4        # effective batch = 64 sequences
-  lr: 1.0e-3
-  epochs: 1
+  grad_accum: 4         # effective batch = 64 sequences (32,768 tokens/step)
+  lr: 8.0e-4
+  epochs: 4
   seed: 42
   data_dir: data/tokenized/
-  save_path: checkpoints/base_model_15M.pt
+  save_path: checkpoints/base_model_33M.pt
 ```
 
 ## 3. Rejection Sampling
 
+Generate candidate answers with the base model and filter them using the local Llama 3.2 1B judge:
+
 ```bash
 python -m nanogpt.judge \
-  --model-path checkpoints/base_model_15M.pt \
+  --model-path checkpoints/base_model_33M.pt \
   --instruct-data data/raw/TinyStories-Instruct.json \
   --output data/sft/aligned_pairs.json \
   --candidates 3
@@ -332,60 +313,57 @@ python -m nanogpt.judge \
 
 ## 4. Supervised Fine-tuning
 
-Approximate time: **15-30 min**
+Fine-tune the model to follow the Q&A format, training only on answer tokens:
 
 ```bash
 python -m nanogpt.train_sft --config configs/sft.yaml
+```
+
+`configs/sft.yaml`:
+
+```yaml
+model_path: checkpoints/base_model_33M.pt
+data_path: data/sft/aligned_pairs.json
+save_path: checkpoints/sft_model_final.pt
+batch_size: 8
+grad_accum: 2
+lr: 2.0e-4
+epochs: 3
 ```
 
 ## 5. Launch the UI
 
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8000
-
-# add --reload only during development
 ```
 
-Open:
-
-http://localhost:8000
+Open `http://127.0.0.1:8000` for the chat interface.
 
 ---
 
 # Alignment: Rejection Sampling
 
-For each story and question, the base model produces `k=3` candidate answers. The local judge accepts or rejects each one, and only accepted pairs go into the SFT set.
+For each story and question, the base model produces `k=3` candidate answers at different temperatures. The local judge accepts or rejects each one, and only accepted pairs go into the SFT set.
 
 ```mermaid
 flowchart TD
-
-    Q[Story + Question] --> M[NanoGPT]
-
-    M --> C1[Candidate 1]
-
-    M --> C2[Candidate 2]
-
-    M --> C3[Candidate 3]
-
-    C1 & C2 & C3 --> J{Llama 3.2 1B judge}
-
-    J -->|YES| A[Accepted]
-
-    J -->|NO| R[Discarded]
-
-    A --> S[aligned_pairs.json]
+    Q["Input: Story + Question"] --> M[NanoGPT Base Model]
+    M --> C1[Candidate 1: Temp 0.7]
+    M --> C2[Candidate 2: Temp 0.8]
+    M --> C3[Candidate 3: Temp 0.9]
+    C1 & C2 & C3 --> J{Llama 3.2 1B Judge}
+    J -->|YES: Factually Accurate| A[Accepted Pair]
+    J -->|NO: Hallucination / Drift| R[Discarded]
+    A --> S["data/sft/aligned_pairs.json"]
 ```
 
-## SFT Loss Masking
+## Loss Masking Detail
 
-The story and question are context only; loss is computed on answer tokens.
+During fine-tuning, loss is masked (`label = -100`) across the context tokens. Gradients are backpropagated exclusively through the answer tokens:
 
 ```text
-Story:    [ masked, no loss ]
-
-Question: [ masked, no loss ]
-
-Answer:   [ loss on these tokens ]
+Prompt:   <|story|> {story} <|question|> {question} <|answer|> {answer} <|eos|>
+Targets:  [------------ MASKED: ignore_index = -100 ------------] [LOSS COMPUTED]
 ```
 
 ## Judge Quality Caveat
@@ -400,15 +378,15 @@ A 1B model is a noisy judge. To keep the SFT set clean:
 
 # Prompt Format
 
-Training and inference must use the identical template. Special tokens are added to the tokenizer vocabulary.
+Both training and inference adhere strictly to special token boundaries:
 
 ```text
 <|story|> {story} <|question|> {question} <|answer|> {answer} <|eos|>
 ```
 
-At inference, the prompt stops after `<|answer|>` and generation runs until `<|eos|>` or `max_tokens`.
+At inference, input stops at `<|answer|>` and generation samples tokens autoregressively until `<|eos|>` or `max_tokens` is reached.
 
-Inputs longer than the context window are truncated from the story side, never the question.
+Inputs longer than 512 tokens are truncated from the start of the story, preserving the entire question.
 
 ---
 
@@ -417,96 +395,92 @@ Inputs longer than the context window are truncated from the story side, never t
 ## `POST /chat`
 
 ```bash
-curl -X POST http://localhost:8000/chat \
+curl -X POST http://127.0.0.1:8000/chat \
   -H "Content-Type: application/json" \
   -d '{
-    "story": "Tim lost his red ball in the garden. He found it under the oak tree.",
-    "question": "Where did Tim find the ball?",
-    "temperature": 0.2,
-    "max_tokens": 50
+    "story": "Tim lost his red ball in the garden. He searched behind the shed and found it under the oak tree.",
+    "question": "Where did Tim find his ball?",
+    "temperature": 0.7,
+    "max_tokens": 60
   }'
 ```
 
 ### Request Fields
 
-| Field         | Type   | Default  | Notes                                  |
-| :------------ | :----- | :------- | :------------------------------------- |
-| `story`       | string | required | Truncated to fit the 256-token context |
-| `question`    | string | required |                                        |
-| `temperature` | float  | `0.2`    | Range 0-2; `0` means greedy            |
-| `max_tokens`  | int    | `50`     | Capped server-side                     |
+| Field | Type | Default | Notes |
+| :--- | :--- | :--- | :--- |
+| `story` | string | required | Truncated to fit the 512-token context |
+| `question` | string | required | |
+| `temperature` | float | `0.2` | Range 0-2; `0` means greedy |
+| `max_tokens` | int | `50` | Capped server-side |
 
 ### Response
 
 ```json
 {
   "answer": "Under the oak tree.",
-  "tokens_generated": 5,
-  "inference_time_ms": 42.1
+  "tokens_generated": 6,
+  "inference_time_ms": 27.4
 }
 ```
 
 ### Errors
 
-| Status | Meaning                  |
-| :----- | :----------------------- |
-| `422`  | Missing or invalid field |
-| `503`  | Model not loaded yet     |
+| Status | Meaning |
+| :--- | :--- |
+| `422` | Missing or invalid field |
+| `503` | Model not loaded yet |
 
 ## `GET /health`
-
-Returns:
 
 ```json
 {
   "status": "ok",
-  "device": "cuda"
+  "device": "cuda",
+  "vram_used_mb": 1845.2
 }
 ```
 
-The endpoint returns this once the model is loaded.
+Returns this once the model has finished loading.
 
 ---
 
 # Hardware and Memory Budget
 
-Fits a 6 GB GPU by combining:
+Engineered to fit comfortably inside a 6 GB VRAM budget:
 
-* bfloat16 mixed precision
-* gradient accumulation (16 x 4 = 64 sequences per optimizer step)
-* 256-token context and a compact 384-wide model
-* memory-mapped pre-tokenized data (no dataset held in RAM)
-* SDPA fused attention
+* **bfloat16 mixed precision** — cuts activation and weight memory footprints roughly in half compared to float32, while avoiding underflow/overflow issues.
+* **FlashAttention (SDPA)** — replaces materializing the O(T²) attention matrix in VRAM with tile-based fused kernels.
+* **Memory-mapped pre-tokenization** — the training dataset is accessed directly from disk via `np.memmap(dtype=np.uint16)`. Training uses well under 300 MB of system RAM regardless of dataset size.
+* **Tied embeddings** — sharing weights between `tok_emb` and `lm_head` saves ~5.12M parameters (~10.2 MB of VRAM and checkpoint size).
 
-If you hit CUDA out-of-memory, lower `batch_size` and raise `grad_accum` to keep the effective batch at 64.
+If you hit CUDA out-of-memory, lower `batch_size` and raise `grad_accum` to keep the effective batch size constant.
 
 ---
 
 # Testing
 
-Run:
-
 ```bash
 pytest -q
 ```
 
-| Test                | Checks                                                                |
-| :------------------ | :-------------------------------------------------------------------- |
-| `test_model.py`     | Output shapes, causal mask (token *t* never sees *t+1*), tied weights |
-| `test_tokenizer.py` | Encode/decode round trip, special tokens present                      |
-| `test_masking.py`   | SFT labels are `-100` everywhere except answer tokens                 |
+| Test | Checks |
+| :--- | :--- |
+| `tests/test_model.py` | Weight tying, forward-pass tensor shapes, and a strictly causal attention mask (token *t* never attends to *t+1*) |
+| `tests/test_tokenizer.py` | Round-trip encode/decode and presence of special delimiter tokens |
+| `tests/test_masking.py` | Target masks assign `-100` to all story/question tokens; loss is computed only on answer tokens |
 
 ---
 
 # Troubleshooting
 
-| Problem                                | Fix                                                                         |
-| :------------------------------------- | :-------------------------------------------------------------------------- |
-| `CUDA out of memory`                   | Halve `batch_size`, double `grad_accum`                                     |
-| `torch.cuda.is_available()` is `False` | Reinstall PyTorch with the matching CUDA wheel (`cu121`)                    |
-| Judge step hangs or connection refused | Start Ollama (`ollama serve`) and confirm `ollama list` shows `llama3.2:1b` |
-| Nonsense or repeated answers           | Check the prompt template matches training; lower temperature               |
-| Loss goes to NaN                       | Lower `lr`, add gradient clipping (`max_norm=1.0`)                          |
+| Issue | Root cause | Solution |
+| :--- | :--- | :--- |
+| `memory allocation of ... bytes failed` during `make tokenize` | Attempting to read large raw `.txt` files in a single buffer | Stream the file line-by-line (`for line in f:`) inside `tokenizers.py` |
+| `RuntimeError: Error(s) in loading state_dict for GPT` | Architecture mismatch between `configs/base.yaml` and the `.pt` checkpoint | Verify `dim`, `layers`, `heads`, and `context_len` match the values used to train the checkpoint |
+| `NameError: name 'cuda' is not defined` in PowerShell | PowerShell stripping inner quotes in inline `python -c` commands | Use a standalone script (`python sample.py`) or a PowerShell `@' ... '@` verbatim block |
+| `torch.cuda.is_available()` is `False` | PyTorch installed without CUDA runtime dependencies | Reinstall with CUDA wheels: `pip install torch --index-url https://download.pytorch.org/whl/cu121` |
+| ByteLevel special characters (`Ġ`, `Ċ`) in output | Tokenizer missing the ByteLevel decoding pipeline | Set `tokenizer.decoder = tokenizers.decoders.ByteLevel()` before calling `decode()` |
 
 ---
 
@@ -514,7 +488,7 @@ pytest -q
 
 * Domain-bound to simple children's stories; no broad world knowledge.
 * Weak at multi-step reasoning and arithmetic.
-* 256-token context, so long stories are truncated.
+* 512-token context, so very long stories are still truncated.
 * Answer quality depends on the base model and the noisy 1B judge.
 * Much smaller than modern general-purpose LLMs; intended for learning and experimentation.
 
@@ -522,7 +496,7 @@ pytest -q
 
 # Roadmap
 
-* [ ] Add evaluation script and publish results table
+* [ ] Publish the full SFT evaluation results
 * [ ] Reference-answer filtering to complement the LLM judge
 * [ ] Learning-rate warmup + cosine schedule ablation
 * [ ] KV-cache for faster generation

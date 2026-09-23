@@ -6,13 +6,13 @@ os.makedirs("data/raw", exist_ok=True)
 
 # 1. Download TinyStories for pre-training
 print("Downloading TinyStories dataset (pre-training)...")
-ds_base = load_dataset("roneneldan/TinyStories", split="train[:50000]")
+ds_base = load_dataset("roneneldan/TinyStories", split="train[:300000]")
 
 raw_train_file = os.path.join("data", "raw", "train.txt")
-with open(raw_train_file, "w", encoding="utf-8") as f:
+with open(raw_train_file, "w", encoding="utf-8",newline="\n") as f:
     for item in ds_base:
         f.write(item["text"].strip() + "\n<|endoftext|>\n")
-print(f"Pre-training data saved to {raw_train_file}")
+print(f"Pre-training data saved to {raw_train_file} ({len(ds_base):,} stories)")
 
 # 2. Download TinyStories-Instruct for Q&A seeds
 print("Downloading TinyStories-Instruct dataset (alignment seeds)...")

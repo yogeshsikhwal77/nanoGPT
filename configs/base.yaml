@@ -1,17 +1,15 @@
-#---- yaml file for model and training----
-
-
 model:
-  dim: 384
-  layers: 6
-  heads: 6
-  context_len: 256
+  dim: 512          # widened residual stream (was 384)
+  layers: 8         # deeper reasoning capacity (was 6)
+  heads: 8          # 512 / 8 = 64 head dim
+  context_len: 512  # can handle longer, richer stories (was 256)
   vocab_size: 10000
+
 train:
   batch_size: 16
-  grad_accum: 4
-  lr: 1.0e-3
-  epochs: 1
+  grad_accum: 4     # effective batch = 64
+  lr: 8.0e-4        # slightly lower peak LR for a larger model
+  epochs: 4         # 4 passes over the data (takes ~50-60 mins)
   seed: 42
   data_dir: data/tokenized/
-  save_path: checkpoints/base_model_15M.pt
+  save_path: checkpoints/base_model_33M.pt

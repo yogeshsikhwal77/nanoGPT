@@ -49,11 +49,10 @@ def encode(input_dir: str, output_dir: str, tokenizer_path: str = "tokenizer.jso
     total_tokens = 0
 
     for i,file_path in enumerate(files):
+        tokens = []
         with open(file_path, 'r', encoding='utf-8') as f:
-            text = f.read()
-
-        encoded = tokenizer.encode(text)
-        tokens = encoded.ids
+            for line in f:
+                tokens.extend(tokenizer.encode(line).ids)
 
         tokens.append(eos_id)
         # Vocab size is 10,000, so uint16 (max 65,535) is perfectly sized and saves memory
