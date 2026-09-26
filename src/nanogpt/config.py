@@ -39,6 +39,8 @@ class SFTConfig:
     grad_accum: int
     lr: float
     epochs: int
+    warmup_steps: int = 50
+    min_lr_ratio: float = 0.1
 
 
 #--- loaders----

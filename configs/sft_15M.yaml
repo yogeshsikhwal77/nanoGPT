@@ -1,7 +1,8 @@
 model_path: checkpoints/base_model_15M.pt
-data_path: data/sft/aligned_pairs.json
+data_path: data/sft/aligned_pairs_1000.json
 save_path: checkpoints/sft_model_15M.pt
 batch_size: 8
 grad_accum: 2
 lr: 2.0e-4
-epochs: 3
+epochs: 2
+warmup_steps: 50
