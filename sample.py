@@ -18,7 +18,7 @@ model.load_state_dict(ckpt["model"])
 model.eval()
 
 tokenizer = Tokenizer.from_file("tokenizer.json")
-prompt = "Once upon a time, there was a little bird named"
+prompt = "Once upon a time, there was a happy little girl named Lucy. She"
 tokens = tokenizer.encode(prompt).ids
 idx = torch.tensor([tokens], dtype=torch.long, device=device)
 

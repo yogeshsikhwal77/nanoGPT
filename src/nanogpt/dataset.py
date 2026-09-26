@@ -2,6 +2,9 @@ import os
 import glob
 import numpy as np
 import torch
+from torch.utils.data import Dataset
+import json
+from tokenizers import Tokenizer
 
 
 class MemmapPretrainDataset:
@@ -73,3 +76,50 @@ class TinyOverfitDataset:
     def get_batch(self, batch_size: int, device: str = "cpu"):
         idx = np.random.randint(0, self.x.shape[0], size=batch_size)
         return self.x[idx].to(device), self.y[idx].to(device)
+
+
+
+class SFTDataset(Dataset):
+    def __init__(self, data_path: str, context_len: int, tokenizer_path: str = "tokenizer.json"):
+        self.context_len = context_len
+        with open(data_path, "r", encoding="utf-8") as f:
+            self.data = json.load(f)
+        
+        self.tokenizer = Tokenizer.from_file(tokenizer_path)
+        self.pad_id = self.tokenizer.token_to_id("<|pad|>")
+        self.eos_id = self.tokenizer.token_to_id("<|eos|>")
+        
+    def __len__(self):
+        return len(self.data)
+        
+    def __getitem__(self, idx):
+        item = self.data[idx]
+        story = item.get("story", "")
+        question = item.get("question", "")
+        answer = item.get("answer", "")
+        
+        prompt_text = f"<|story|> {story} <|question|> {question} <|answer|>"
+        answer_text = f" {answer}"
+        
+        prompt_ids = self.tokenizer.encode(prompt_text).ids
+        answer_ids = self.tokenizer.encode(answer_text).ids + [self.eos_id]
+        
+        # Truncation: Drop tokens from the start of the story if over context limit
+        total_len = len(prompt_ids) + len(answer_ids)
+        if total_len > self.context_len + 1:
+            excess = total_len - (self.context_len + 1)
+            prompt_ids = prompt_ids[excess:] 
+            
+        x_ids = prompt_ids + answer_ids
+        y_ids = ([-100] * len(prompt_ids)) + answer_ids
+        
+        # Pad sequence to fixed context length
+        pad_len = (self.context_len + 1) - len(x_ids)
+        if pad_len > 0:
+            x_ids.extend([self.pad_id] * pad_len)
+            y_ids.extend([-100] * pad_len)
+            
+        x = torch.tensor(x_ids[:-1], dtype=torch.long)
+        y = torch.tensor(y_ids[1:], dtype=torch.long)
+        
+        return x, y
