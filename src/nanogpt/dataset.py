@@ -104,16 +104,15 @@ class SFTDataset(Dataset):
         prompt_ids = self.tokenizer.encode(prompt_text).ids
         answer_ids = self.tokenizer.encode(answer_text).ids + [self.eos_id]
         
-        # Truncation: Drop tokens from the start of the story if over context limit
         total_len = len(prompt_ids) + len(answer_ids)
         if total_len > self.context_len + 1:
             excess = total_len - (self.context_len + 1)
-            prompt_ids = prompt_ids[excess:] 
+            prompt_ids = prompt_ids[excess:]
             
         x_ids = prompt_ids + answer_ids
         y_ids = ([-100] * len(prompt_ids)) + answer_ids
         
-        # Pad sequence to fixed context length
+        # Pad to context length using pad_id
         pad_len = (self.context_len + 1) - len(x_ids)
         if pad_len > 0:
             x_ids.extend([self.pad_id] * pad_len)
