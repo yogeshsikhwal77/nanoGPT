@@ -37,17 +37,20 @@ def extract_stories(data_path: str):
     return [s for s in stories if len(s) > 50]
 
 def generate_qa_pair(story: str) -> dict:
-    """Uses Llama 3.2 1B as a Teacher to generate synthetic Q&A pairs."""
     system_instruction = (
         "You are a teacher creating a reading comprehension test. "
-        "Read the STORY and generate ONE simple, factual question about it, and a short, direct answer. "
-        "You MUST respond ONLY with valid JSON. "
-        "Example output: {\"question\": \"Where did the dog hide?\", \"answer\": \"Under the bed.\"}"
+        "Read the STORY carefully and generate ONE simple, factual question "
+        "that can ONLY be answered using information stated in THIS story, "
+        "and a short, direct answer copied or closely paraphrased from THIS story. "
+        "Do not invent details not present in the story. "
+        "Respond ONLY with valid JSON in the form: "
+        '{"question": "<your question>", "answer": "<your answer>"}'
     )
+    # no concrete filled-in example — nothing for a weak model to fall back on
 
     try:
         response = ollama.chat(
-            model="llama3.2:1b",
+            model="qwen2.5:3b",
             format="json",
             messages=[
                 {"role": "system", "content": system_instruction},
@@ -56,12 +59,21 @@ def generate_qa_pair(story: str) -> dict:
             options={"temperature": 0.3},
         )
         result = json.loads(response["message"]["content"])
-        return {
-            "story": story,
-            "question": result.get("question", ""),
-            "answer": result.get("answer", "")
-        }
-    except Exception as e:
+        question, answer = result.get("question", "").strip(), result.get("answer", "").strip()
+
+        if not question or not answer:
+            return None
+
+        # Grounding check: reject if answer shares no vocabulary with the story
+        # (catches hallucinations and copied boilerplate like the old "Under the bed." example)
+        story_words = set(w.lower().strip(".,!?\"'") for w in story.split())
+        answer_words = set(w.lower().strip(".,!?\"'") for w in answer.split())
+        meaningful_answer_words = {w for w in answer_words if len(w) > 3}
+        if meaningful_answer_words and not (meaningful_answer_words & story_words):
+            return None  # answer has no grounding in the story at all
+
+        return {"story": story, "question": question, "answer": answer}
+    except Exception:
         return None
 
 def main():
