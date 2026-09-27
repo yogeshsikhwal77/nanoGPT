@@ -1,13 +1,17 @@
-# Project specific (Data & Checkpoints)
+# Project specific (Data)
 data/
-checkpoints/
 
-# Model weights and serialized artifacts
+# Model checkpoints (See deployment note below!)
+checkpoints/
 *.pt
 *.pth
 *.bin
 *.safetensors
 *.onnx
+
+# Environment variables & Secrets (Always ignore, even in public repos)
+.env
+.env.*
 
 # Python bytecode & cache
 __pycache__/
@@ -15,11 +19,14 @@ __pycache__/
 *$py.class
 *.so
 
-# Distribution / Packaging
+# Distribution / Packaging / Archives
 build/
 dist/
 *.egg-info/
 .eggs/
+*.zip
+*.tar.gz
+*.rar
 
 # Virtual Environments
 venv/
@@ -34,6 +41,10 @@ htmlcov/
 
 # Logs & Runtime
 *.log
+nohup.out
+
+# Jupyter / Data Science
+.ipynb_checkpoints/
 
 # Operating System files
 .DS_Store

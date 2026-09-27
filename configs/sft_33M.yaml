@@ -1,8 +1,9 @@
-model_path: checkpoints/base_model_33M.pt
-data_path: data/sft/merged_pairs.json
-save_path: checkpoints/sft_model_33M.pt
+model_path: "checkpoints/base_model_33M.pt"
+data_path: "data/sft/merged_pairs.json"
+save_path: "checkpoints/sft_model_33M.pt"
 batch_size: 8
-grad_accum: 8
-lr: 2.0e-4
-warmup_steps: 50
-epochs: 2
+grad_accum: 2        # Effective batch = 16 (prevents running out of steps)
+lr: 1.5e-4           # Slightly gentler for finetuning
+warmup_steps: 30     # ~10% of total steps
+epochs: 2            # 2 epochs is the sweet spot to prevent memorization
+min_lr_ratio: 0.1

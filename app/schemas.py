@@ -5,7 +5,10 @@ class ChatRequest(BaseModel):
     question: str = Field(..., description="Question regarding the story")
     temperature: float = Field(0.2, ge=0.0, le=2.0)
     max_tokens: int = Field(50, ge=1, le=128)
-    model_name: str = Field("fiko", description="Model to use: 'fiko' or 'fire'")
+    model_name: str = Field(
+        "fire-max", 
+        description="Model to use: 'fire-medium', 'fire-high', 'fire-max', 'fiko-medium', 'fiko-high', 'fiko-max'"
+    )
 
 class ChatResponse(BaseModel):
     answer: str

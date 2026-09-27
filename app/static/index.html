@@ -1,482 +1,301 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NanoGPT Interactive</title>
-  <style>
-    :root {
-      /* Dark Theme (Default) */
-      --bg-main: #0a0a0a;
-      --bg-surface: #171717;
-      --bg-chat-user: #262626;
-      --bg-chat-ai: transparent;
-      --text-main: #f5f5f5;
-      --text-muted: #a3a3a3;
-      --border-color: #333;
-      /* Requested colors: Green, Blue, Violet, Red */
-      --accent-gradient: linear-gradient(270deg, #10b981, #3b82f6, #8b5cf6, #ef4444);
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NanoGPT Q&A</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0f12; --surface:#15181c; --surface-2:#1c2025; --line:#282d33;
+    --ink:#eef0f2; --ink-muted:#8b939c; --user-bubble:#22262b;
+    --accent-a:#34d399; --accent-b:#a78bfa;
+    --accent-grad:linear-gradient(270deg,#3b82f6,#10b981,#8b5cf6,#f59e0b,#ef4444,#3b82f6);
+    --radius-lg:18px; --radius-sm:10px;
+  }
+  [data-theme="light"]{
+    --bg:#faf9f7; --surface:#ffffff; --surface-2:#f1f0ee; --line:#e2e0dc;
+    --ink:#191a1c; --ink-muted:#6b6f75; --user-bubble:#ecebe8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink);
+    height:100vh; display:flex; flex-direction:column; overflow:hidden;
+    transition:background .35s ease,color .35s ease;
+  }
+  .brandfont{font-family:'Space Grotesk',sans-serif}
 
-    [data-theme="light"] {
-      /* Light Theme */
-      --bg-main: #ffffff;
-      --bg-surface: #f3f4f6;
-      --bg-chat-user: #e5e7eb;
-      --bg-chat-ai: transparent;
-      --text-main: #111827;
-      --text-muted: #6b7280;
-      --border-color: #d1d5db;
-    }
+  .topline{height:3px;background:var(--accent-grad);background-size:300% 300%;animation:flow 6s ease infinite}
+  @keyframes flow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 
-    * { 
-      box-sizing: border-box; 
-      margin: 0; 
-      padding: 0; 
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg-main);
-      color: var(--text-main);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      transition: background-color 0.4s ease, color 0.4s ease;
-      overflow: hidden;
-    }
+  header{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:1.1rem 1.75rem; border-bottom:1px solid var(--line);
+  }
+  .brand{font-weight:700; font-size:1.15rem; letter-spacing:-.01em}
+  .brand span{
+    background:var(--accent-grad); background-size:300% 300%;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:flow 5s ease infinite;
+  }
+  .controls{display:flex; gap:.6rem}
+  .icon-btn{
+    width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    color:var(--ink-muted); cursor:pointer; transition:border-color .2s,color .2s;
+  }
+  .icon-btn:hover{border-color:var(--accent-b); color:var(--ink)}
+  .icon-btn svg{width:17px; height:17px}
 
-    /* Animated Gradient Header Bar */
-    .gradient-bar {
-      height: 4px;
-      width: 100%;
-      background: var(--accent-gradient);
-      background-size: 800% 800%;
-      animation: GradientAnimation 8s ease infinite;
-    }
+  main{flex:1; display:flex; flex-direction:column; overflow:hidden}
 
-    @keyframes GradientAnimation {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
+  .settings-panel{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:1.25rem; max-height:0; overflow:hidden; padding:0 1.75rem;
+    background:var(--surface); border-bottom:1px solid transparent;
+    transition:max-height .35s ease, padding .35s ease;
+  }
+  .settings-panel.active{max-height:220px; padding:1.25rem 1.75rem; border-bottom-color:var(--line)}
+  .setting-group{display:flex; flex-direction:column; gap:.45rem}
+  .setting-group label{font-size:.78rem; color:var(--ink-muted); font-weight:500}
+  .setting-group select, .setting-group input[type=number]{
+    background:var(--surface-2); color:var(--ink); border:1px solid var(--line);
+    padding:.55rem .6rem; border-radius:var(--radius-sm); font-family:inherit; font-size:.85rem; outline:none;
+  }
+  .range-row{display:flex; align-items:center; gap:.6rem}
+  .range-row input[type=range]{flex:1; accent-color:var(--accent-b)}
+  .range-row span{font-size:.8rem; color:var(--ink-muted); min-width:2ch}
 
-    /* Navbar */
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem 2rem;
-      background-color: var(--bg-main);
-      border-bottom: 1px solid var(--border-color);
-      z-index: 10;
-      transition: background-color 0.4s, border-color 0.4s;
-    }
+  .story-container{
+    position:relative; padding:1.1rem 1.75rem 1.1rem 2rem; border-bottom:1px solid var(--line);
+    background:var(--surface);
+  }
+  .story-container::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:var(--accent-grad); background-size:400% 400%; animation:flow 6s ease infinite;
+  }
+  .story-container label{display:block; font-size:.8rem; color:var(--ink-muted); margin-bottom:.4rem}
+  .story-container textarea{
+    width:100%; background:transparent; color:var(--ink); border:none; resize:vertical;
+    min-height:44px; font-family:inherit; font-size:1rem; line-height:1.55; outline:none;
+  }
 
-    .brand { 
-      font-weight: 700; 
-      font-size: 1.2rem; 
-      letter-spacing: -0.5px; 
-    }
+  .chat-container{flex:1; overflow-y:auto; padding:1.75rem; display:flex; flex-direction:column; gap:1.4rem}
+  .chat-container::-webkit-scrollbar{width:8px}
+  .chat-container::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px}
 
-    .controls { 
-      display: flex; 
-      gap: 1rem; 
-      align-items: center; 
-    }
+  .message{max-width:78%; line-height:1.6; font-size:1rem; animation:rise .3s ease-out}
+  @keyframes rise{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)}}
+  .message.user{
+    align-self:flex-end; background:var(--user-bubble); padding:.85rem 1.2rem;
+    border-radius:16px 16px 4px 16px;
+  }
+  .message.ai{position:relative; align-self:flex-start; padding-left:1rem}
+  .message.ai::before{
+    content:""; position:absolute; left:0; top:2px; bottom:2px; width:2px;
+    background:var(--accent-grad); background-size:400% 400%; animation:flow 6s ease infinite;
+  }
+  .meta-data{
+    display:flex; align-items:center; gap:.35rem; margin-top:.55rem;
+    font-size:.75rem; color:var(--ink-muted);
+  }
+  .meta-data svg{width:12px; height:12px; opacity:.8}
 
-    button.icon-btn {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      cursor: pointer;
-      font-size: 0.9rem;
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      transition: all 0.2s;
-    }
-    
-    button.icon-btn:hover { 
-      filter: brightness(1.2); 
-    }
+  .typing{display:flex; gap:5px; padding-left:1rem; align-items:center}
+  .typing-dot{width:6px; height:6px; border-radius:50%; background:var(--ink-muted); animation:bounce 1.3s infinite ease-in-out both}
+  .typing-dot:nth-child(1){animation-delay:-.28s}
+  .typing-dot:nth-child(2){animation-delay:-.14s}
+  @keyframes bounce{0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)}}
 
-    /* Main Chat Layout */
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-    }
+  .input-area{padding:1.25rem 1.75rem; border-top:1px solid var(--line)}
+  .input-wrapper{
+    position:relative; display:flex; max-width:900px; margin:0 auto;
+    border-radius:22px; background:var(--surface); border:1px solid var(--line);
+    padding:.3rem; transition:border-color .25s;
+  }
+  .input-wrapper::before{
+    content:""; position:absolute; inset:-1px; border-radius:23px; padding:1px;
+    background:var(--accent-grad); background-size:300% 300%; animation:flow 5s ease infinite;
+    opacity:0; transition:opacity .25s ease; z-index:-1;
+  }
+  .input-wrapper:focus-within{border-color:transparent}
+  .input-wrapper:focus-within::before{opacity:1}
+  .input-wrapper input{
+    flex:1; background:transparent; border:none; padding:.85rem 1.1rem;
+    color:var(--ink); font-family:inherit; font-size:.95rem; outline:none;
+  }
+  .send-btn{
+    width:42px; height:42px; margin:.25rem; border:none; border-radius:16px;
+    background:var(--accent-grad); background-size:300% 300%; animation:flow 5s ease infinite;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:transform .12s ease;
+  }
+  .send-btn:hover{transform:scale(1.05)}
+  .send-btn:active{transform:scale(.93)}
+  .send-btn svg{width:18px; height:18px; stroke:#0c0f12}
 
-    /* Settings Panel (Collapsible) */
-    .settings-panel {
-      display: flex;
-      max-height: 0;
-      overflow: hidden;
-      background-color: var(--bg-surface);
-      border-bottom: 1px solid transparent;
-      padding: 0 2rem;
-      flex-wrap: wrap;
-      gap: 1.5rem;
-      transition: all 0.4s ease;
-    }
-    .settings-panel.active { 
-      max-height: 200px; 
-      padding: 1.5rem 2rem; 
-      border-bottom: 1px solid var(--border-color); 
-    }
-
-    .setting-group { 
-      display: flex; 
-      flex-direction: column; 
-      gap: 0.4rem; 
-    }
-    .setting-group label { 
-      font-size: 0.8rem; 
-      color: var(--text-muted); 
-      font-weight: 600; 
-      text-transform: uppercase; 
-    }
-    .setting-group input, .setting-group select {
-      background-color: var(--bg-main);
-      color: var(--text-main);
-      border: 1px solid var(--border-color);
-      padding: 0.6rem;
-      border-radius: 8px;
-      outline: none;
-      transition: background-color 0.4s, color 0.4s;
-    }
-
-    /* Story Context Area */
-    .story-container {
-      padding: 1.5rem 2rem;
-      border-bottom: 1px solid var(--border-color);
-      background-color: var(--bg-main);
-      flex-shrink: 0;
-      transition: background-color 0.4s;
-    }
-    
-    .story-container label {
-      display: block; 
-      font-size: 0.85rem; 
-      color: var(--text-muted); 
-      margin-bottom: 0.5rem; 
-      font-weight: 600; 
-      text-transform: uppercase;
-    }
-
-    .story-container textarea {
-      width: 100%;
-      background: transparent;
-      color: var(--text-main);
-      border: none;
-      resize: vertical;
-      min-height: 60px;
-      font-size: 1.05rem;
-      line-height: 1.5;
-      outline: none;
-      font-family: inherit;
-    }
-
-    /* Chat Area */
-    .chat-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    .message {
-      max-width: 80%;
-      padding: 1rem 1.5rem;
-      border-radius: 16px;
-      line-height: 1.6;
-      font-size: 1.05rem;
-      animation: fadeIn 0.3s ease-out;
-    }
-
-    @keyframes fadeIn { 
-      from { opacity: 0; transform: translateY(10px); } 
-      to { opacity: 1; transform: translateY(0); } 
-    }
-
-    .message.user {
-      align-self: flex-end;
-      background-color: var(--bg-chat-user);
-      border-bottom-right-radius: 4px;
-    }
-
-    .message.ai {
-      align-self: flex-start;
-      background-color: var(--bg-chat-ai);
-      border: 1px solid var(--border-color);
-      border-bottom-left-radius: 4px;
-    }
-
-    .meta-data {
-      display: block;
-      margin-top: 0.8rem;
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      border-top: 1px solid var(--border-color);
-      padding-top: 0.5rem;
-    }
-
-    /* Fixed Bottom Input */
-    .input-area {
-      padding: 1.5rem 2rem;
-      background-color: var(--bg-main);
-      border-top: 1px solid var(--border-color);
-      transition: background-color 0.4s;
-    }
-
-    .input-wrapper {
-      position: relative;
-      display: flex;
-      max-width: 900px;
-      margin: 0 auto;
-      border-radius: 24px;
-      background-color: var(--bg-surface);
-      padding: 0.3rem;
-      transition: background-color 0.4s;
-    }
-
-    /* The Animated Glowing Border Effect on Input */
-    .input-wrapper::before {
-      content: "";
-      position: absolute;
-      inset: -2px;
-      border-radius: 26px;
-      background: var(--accent-gradient);
-      background-size: 400% 400%;
-      animation: GradientAnimation 4s ease infinite;
-      z-index: -1;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .input-wrapper:focus-within::before { 
-      opacity: 1; 
-    }
-
-    .input-wrapper input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      padding: 1rem 1.5rem;
-      color: var(--text-main);
-      font-size: 1rem;
-      outline: none;
-    }
-
-    .submit-btn {
-      margin: 0.3rem;
-      padding: 0.7rem 1.5rem;
-      border-radius: 18px;
-      background: var(--text-main);
-      color: var(--bg-main);
-      font-weight: 600;
-      font-size: 1rem;
-      border: none;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
-    }
-
-    .submit-btn:hover { opacity: 0.9; }
-    .submit-btn:active { transform: scale(0.95); }
-
-    /* Typing Indicator */
-    .typing {
-      display: flex;
-      gap: 6px;
-      padding: 1.2rem 1.5rem;
-      align-items: center;
-    }
-    .typing-dot {
-      width: 8px;
-      height: 8px;
-      background-color: var(--text-muted);
-      border-radius: 50%;
-      animation: bounce 1.4s infinite ease-in-out both;
-    }
-    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-    
-    @keyframes bounce {
-      0%, 80%, 100% { transform: scale(0); }
-      40% { transform: scale(1); }
-    }
-
-    @media (max-width: 768px) {
-      header, .story-container, .chat-container, .input-area { padding: 1rem; }
-      .message { max-width: 95%; }
-    }
-  </style>
+  @media (max-width:720px){
+    header,.story-container,.chat-container,.input-area{padding:1rem}
+    .message{max-width:92%}
+  }
+</style>
 </head>
 <body>
 
-  <!-- Top Animated Bar -->
-  <div class="gradient-bar"></div>
+<div class="topline"></div>
 
-  <!-- Header -->
-  <header>
-    <div class="brand">NanoGPT Q&A</div>
-    <div class="controls">
-      <button class="icon-btn" id="toggle-settings">⚙️ Settings</button>
-      <button class="icon-btn" id="toggle-theme">🌓 Theme</button>
-    </div>
-  </header>
+<header>
+  <div class="brand brandfont">nano<span>GPT</span></div>
+  <div class="controls">
+    <button class="icon-btn" id="toggle-settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg>
+    </button>
+    <button class="icon-btn" id="toggle-theme" aria-label="Toggle theme">
+      <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</header>
 
-  <!-- Settings Dropdown -->
-  <div class="settings-panel" id="settings-panel">
-    <div class="setting-group">
-      <label>Model Engine</label>
-      <select id="model_name">
-        <option value="fiko">Fiko (15M Params)</option>
-        <option value="fire">Fire (33M Params)</option>
-      </select>
-    </div>
-    <div class="setting-group">
-      <label>Temperature</label>
-      <input type="number" id="temperature" value="0.2" step="0.1" min="0" max="2">
-    </div>
-    <div class="setting-group">
-      <label>Max Tokens</label>
-      <input type="number" id="max_tokens" value="50" min="5" max="128">
+<div class="settings-panel" id="settings-panel">
+  <div class="setting-group">
+    <label>Model engine & tier</label>
+    <select id="model_name">
+      <optgroup label="Fire (33M parameters)">
+        <option value="fire-max" selected>Fire — Max (Targeted DPO v2)</option>
+        <option value="fire-high">Fire — High (Baseline DPO v1)</option>
+        <option value="fire-medium">Fire — Medium (Standard SFT)</option>
+      </optgroup>
+      <optgroup label="Fiko (15M parameters)">
+        <option value="fiko-max">Fiko — Max (Targeted DPO v2)</option>
+        <option value="fiko-high">Fiko — High (Baseline DPO v1)</option>
+        <option value="fiko-medium">Fiko — Medium (Standard SFT)</option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="setting-group">
+    <label>Temperature</label>
+    <div class="range-row">
+      <input type="range" id="temperature" value="0.2" step="0.1" min="0" max="2">
+      <span id="temp-val">0.2</span>
     </div>
   </div>
+  <div class="setting-group">
+    <label>Max tokens</label>
+    <input type="number" id="max_tokens" value="50" min="5" max="128">
+  </div>
+</div>
 
-  <main>
-    <!-- Story Context Box -->
-    <div class="story-container">
-      <label>Story Context</label>
-      <textarea id="story">Tim lost his red ball in the garden. He searched behind the shed and found it under the oak tree.</textarea>
-    </div>
-
-    <!-- Chat History -->
-    <div class="chat-container" id="chat-box">
-      <div class="message ai">
-        Hello! I am ready to answer questions based on the story above. What would you like to know?
-      </div>
-    </div>
-  </main>
-
-  <!-- Chat Input -->
-  <div class="input-area">
-    <div class="input-wrapper">
-      <input type="text" id="question" placeholder="Ask a question... (e.g. Where did Tim find his ball?)" onkeypress="handleEnter(event)">
-      <button class="submit-btn" onclick="askQuestion()">Send</button>
-    </div>
+<main>
+  <div class="story-container">
+    <label>Story context</label>
+    <textarea id="story">Tim lost his red ball in the garden. He searched behind the shed and found it under the oak tree.</textarea>
   </div>
 
-  <script>
-    // Theme Toggle Logic (White/Black themes)
-    const themeBtn = document.getElementById('toggle-theme');
-    themeBtn.addEventListener('click', () => {
-      const currentTheme = document.body.getAttribute('data-theme');
-      if (currentTheme === 'light') {
-        document.body.removeAttribute('data-theme');
+  <div class="chat-container" id="chat-box">
+    <div class="message ai">Ready when you are — ask a question about the story above.</div>
+  </div>
+</main>
+
+<div class="input-area">
+  <div class="input-wrapper">
+    <input type="text" id="question" placeholder="Ask a question… e.g. Where did Tim find his ball?" onkeypress="handleEnter(event)">
+    <button class="send-btn" onclick="askQuestion()" aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  // Theme toggle
+  const themeBtn = document.getElementById('toggle-theme');
+  const themeIcon = document.getElementById('theme-icon');
+  const sunPaths = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+  const moonPath = '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/>';
+  themeBtn.addEventListener('click', () => {
+    const isLight = document.body.getAttribute('data-theme') === 'light';
+    if (isLight) { document.body.removeAttribute('data-theme'); themeIcon.innerHTML = sunPaths; }
+    else { document.body.setAttribute('data-theme', 'light'); themeIcon.innerHTML = moonPath; }
+  });
+
+  // Settings toggle
+  document.getElementById('toggle-settings').addEventListener('click', () => {
+    document.getElementById('settings-panel').classList.toggle('active');
+  });
+
+  // Live temperature readout
+  const tempInput = document.getElementById('temperature');
+  const tempVal = document.getElementById('temp-val');
+  tempInput.addEventListener('input', () => tempVal.textContent = tempInput.value);
+
+  const chatBox = document.getElementById('chat-box');
+  const questionInput = document.getElementById('question');
+  const clockIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
+
+  function handleEnter(e){ if (e.key === 'Enter') askQuestion(); }
+
+  function appendMessage(text, sender, meta){
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message', sender);
+    const textNode = document.createElement('div');
+    textNode.innerText = text;
+    msgDiv.appendChild(textNode);
+    if (meta){
+      const metaDiv = document.createElement('div');
+      metaDiv.classList.add('meta-data');
+      metaDiv.innerHTML = clockIcon + '<span>' + meta + '</span>';
+      msgDiv.appendChild(metaDiv);
+    }
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function showTyping(){
+    const t = document.createElement('div');
+    t.className = 'message ai typing';
+    t.id = 'typing-indicator';
+    t.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+    chatBox.appendChild(t);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+  function removeTyping(){ document.getElementById('typing-indicator')?.remove(); }
+
+  async function askQuestion(){
+    const question = questionInput.value.trim();
+    if (!question) return;
+
+    const story = document.getElementById('story').value;
+    const model_name = document.getElementById('model_name').value;
+    const temperature = parseFloat(tempInput.value);
+    const max_tokens = parseInt(document.getElementById('max_tokens').value);
+
+    appendMessage(question, 'user');
+    questionInput.value = '';
+    showTyping();
+
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ story, question, temperature, max_tokens, model_name })
+      });
+      const data = await res.json();
+      removeTyping();
+      if (res.ok){
+        appendMessage(data.answer || 'No response generated.', 'ai',
+          `${data.inference_time_ms} ms · ${data.tokens_generated} tokens · ${model_name.toUpperCase()}`);
       } else {
-        document.body.setAttribute('data-theme', 'light');
+        appendMessage(`Error: ${data.detail}`, 'ai');
       }
-    });
-
-    // Settings Toggle Logic
-    const settingsBtn = document.getElementById('toggle-settings');
-    const settingsPanel = document.getElementById('settings-panel');
-    settingsBtn.addEventListener('click', () => {
-      settingsPanel.classList.toggle('active');
-    });
-
-    // Chat Interface Logic
-    const chatBox = document.getElementById('chat-box');
-    const questionInput = document.getElementById('question');
-
-    function handleEnter(e) {
-      if (e.key === 'Enter') askQuestion();
-    }
-
-    function appendMessage(text, sender, meta = null) {
-      const msgDiv = document.createElement('div');
-      msgDiv.classList.add('message', sender);
-      msgDiv.innerText = text;
-
-      // Add meta data for AI responses (latency/tokens)
-      if (meta) {
-        const metaDiv = document.createElement('span');
-        metaDiv.classList.add('meta-data');
-        metaDiv.innerText = meta;
-        msgDiv.appendChild(metaDiv);
-      }
-
-      chatBox.appendChild(msgDiv);
-      chatBox.scrollTop = chatBox.scrollHeight;
-      return msgDiv;
-    }
-
-    function showTyping() {
-      const typingDiv = document.createElement('div');
-      typingDiv.classList.add('message', 'ai', 'typing');
-      typingDiv.id = 'typing-indicator';
-      typingDiv.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
-      chatBox.appendChild(typingDiv);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    function removeTyping() {
-      const typingDiv = document.getElementById('typing-indicator');
-      if (typingDiv) typingDiv.remove();
-    }
-
-    // Backend Request Logic
-    async function askQuestion() {
-      const question = questionInput.value.trim();
-      if (!question) return;
-
-      const story = document.getElementById('story').value;
-      const model_name = document.getElementById('model_name').value;
-      const temperature = parseFloat(document.getElementById('temperature').value);
-      const max_tokens = parseInt(document.getElementById('max_tokens').value);
-      
-      appendMessage(question, 'user');
-      questionInput.value = '';
-      showTyping();
-
-      /* 
-        ========================================================
-        This is where your Python FastApi / Flask backend connects
-        ========================================================
-      */
-      try {
-        const res = await fetch("/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ story, question, temperature, max_tokens, model_name })
-        });
-        
-        const data = await res.json();
+    } catch (err) {
+      setTimeout(() => {
         removeTyping();
-
-        if (res.ok) {
-           appendMessage(
-             data.answer || "No response generated.", 
-             'ai', 
-             `Latency: ${data.inference_time_ms} ms | Tokens: ${data.tokens_generated} | Engine: ${model_name.toUpperCase()}`
-           );
-        } else {
-           appendMessage(`Error: ${data.detail}`, 'ai');
-        }
-      } catch (err) {
-        // Fallback for demonstration if backend is not running
-        setTimeout(() => {
-          removeTyping();
-          appendMessage("Error contacting backend. Is your python server running? \n\n(Mocked Fallback: He found it under the oak tree.)", 'ai', "Latency: 450 ms | Tokens: 10 | Engine: LOCAL_MOCK");
-        }, 1000);
-      }
+        appendMessage('Backend not reachable — showing a mocked reply: "He found it under the oak tree."', 'ai',
+          '450 ms · 10 tokens · LOCAL_MOCK');
+      }, 700);
     }
-  </script>
+  }
+</script>
 </body>
 </html>
