@@ -2,8 +2,8 @@
 data/
 
 # Model checkpoints (See deployment note below!)
-checkpoints/
-*.pt
+# checkpoints/
+# *.pt
 *.pth
 *.bin
 *.safetensors

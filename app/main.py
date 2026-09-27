@@ -164,42 +164,30 @@ def generate_guided(
 def startup_event():
     global engines
 
-    # Model registry covering Medium (SFT), High (DPO v1), and Max (Targeted DPO v2)
+    # MEMORY FIX: Only load the 'Max' models to stay under Render's 512MB Free Tier limit.
     models_to_load = {
-        # Fire Family (33M)
-        "fire-medium": "checkpoints/sft_model_33M.pt",
-        "fire-high":   "checkpoints/dpo_model_33M_v1.pt",
-        "fire-max":    "checkpoints/dpo_model_33M_v2.pt",
-        # Fiko Family (15M)
-        "fiko-medium": "checkpoints/sft_model_15M.pt",
-        "fiko-high":   "checkpoints/dpo_model_15M_v1.pt",
-        "fiko-max":    "checkpoints/dpo_model_15M_v2.pt",
+        "fire-max": "checkpoints/dpo_model_33M_v2.pt",
+        "fiko-max": "checkpoints/dpo_model_15M_v2.pt",
     }
 
     for name, path in models_to_load.items():
         if os.path.exists(path):
             print(f"Loading '{name}' engine from {path}...")
             engine = StoryQAInference(checkpoint_path=path)
-            # CUDA / Autocast Warmup: prevents cold-start latency on the first request
             try:
                 _ = engine.generate(story="A warm garden.", question="What garden?", max_tokens=2)
             except Exception:
                 pass
             engines[name] = engine
-        else:
-            print(f"Notice: '{name}' checkpoint not found at {path} (will skip)")
-
-    # Backward compatibility aliases
-    if "fire-max" in engines:
-        engines["fire"] = engines["fire-max"]
-    elif "fire-medium" in engines:
-        engines["fire"] = engines["fire-medium"]
-
-    if "fiko-max" in engines:
-        engines["fiko"] = engines["fiko-max"]
-    elif "fiko-medium" in engines:
-        engines["fiko"] = engines["fiko-medium"]
-
+            
+    # Map all requests to the MAX models
+    engines["fire"] = engines.get("fire-max")
+    engines["fire-medium"] = engines.get("fire-max")
+    engines["fire-high"] = engines.get("fire-max")
+    
+    engines["fiko"] = engines.get("fiko-max")
+    engines["fiko-medium"] = engines.get("fiko-max")
+    engines["fiko-high"] = engines.get("fiko-max")
 
 @app.get("/")
 def read_root():
