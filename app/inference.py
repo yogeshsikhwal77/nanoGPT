@@ -1,8 +1,15 @@
+import os
+import sys
 import time
 import torch
 import torch.nn.functional as F
 from tokenizers import Tokenizer
 from tokenizers.decoders import ByteLevel
+
+# Ensure the 'src' directory is on sys.path so 'nanogpt' can be imported
+SRC_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+if SRC_PATH not in sys.path:
+    sys.path.insert(0, SRC_PATH)
 
 from nanogpt.model import GPT
 
